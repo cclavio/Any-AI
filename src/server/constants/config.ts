@@ -64,7 +64,7 @@ export const PHOTO_SETTINGS = {
  */
 export const AGENT_SETTINGS = {
   // Maximum tool call iterations
-  maxSteps: 8,
+  maxSteps: 5,
   // Model identifier (Mastra format)
   model: 'google/gemini-2.5-flash',
 };
