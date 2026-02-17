@@ -36,8 +36,8 @@ export class QueryProcessor {
 
     console.log(`⏱️ [PIPELINE-START] Query: "${query.slice(0, 60)}..." | prePhoto: ${prePhoto ? 'yes' : 'no'}`);
 
-    // Play processing sound
-    await this.playProcessingSound();
+    // Play processing sound (fire and forget - don't block pipeline)
+    this.playProcessingSound();
     lap('PROCESSING-SOUND');
 
     // Step 1: Use pre-captured photo (taken at wake word time), or capture now as fallback
