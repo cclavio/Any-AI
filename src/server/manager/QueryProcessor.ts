@@ -148,7 +148,7 @@ export class QueryProcessor {
 
     // Step 8: Save to chat history
     const hadPhoto = photos.length > 0;
-    await this.user.chatHistory.addTurn(query, response, hadPhoto);
+    await this.user.chatHistory.addTurn(query, response, hadPhoto, photoDataUrl);
     lap('SAVE-HISTORY');
 
     console.log(`⏱️ [PIPELINE-DONE] Total: ${Date.now() - pipelineStart}ms`);

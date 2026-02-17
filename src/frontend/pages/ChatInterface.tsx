@@ -166,34 +166,32 @@ function ChatInterface({ userId, recipientId }: ChatInterfaceProps) {
   const [chatHistoryEnabled, setChatHistoryEnabled] = useState(false);
   const [currentPage, setCurrentPage] = useState<'chat' | 'settings'>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
+  // Track whether next scroll should be instant (history load) vs smooth (live message)
+  const scrollInstantRef = useRef(false);
 
   // Scroll to bottom of messages
   const scrollToBottom = (instant?: boolean) => {
-    setTimeout(() => {
-      const container = messagesEndRef.current?.parentElement?.parentElement?.parentElement;
-      if (container && messagesEndRef.current) {
-        const targetPosition = messagesEndRef.current.offsetTop + 150;
-        container.scrollTo({ top: targetPosition, behavior: instant ? 'instant' : 'smooth' });
-      }
-    }, instant ? 0 : 100);
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    requestAnimationFrame(() => {
+      container.scrollTo({ top: container.scrollHeight, behavior: instant ? 'instant' : 'smooth' });
+    });
   };
 
-  const hasScrolledOnReconnect = useRef(false);
   useEffect(() => {
-    if (hasConnectedBefore && !hasScrolledOnReconnect.current && messages.length > 0) {
-      hasScrolledOnReconnect.current = true;
-      scrollToBottom(true);
-    } else {
-      scrollToBottom();
+    if (messages.length > 0) {
+      scrollToBottom(scrollInstantRef.current);
+      scrollInstantRef.current = false;
     }
-  }, [messages, hasConnectedBefore]);
+  }, [messages]);
 
   useEffect(() => {
     if (currentPage === 'chat' && messages.length > 0) {
       scrollToBottom();
     }
-  }, [currentPage, messages.length]);
+  }, [currentPage]);
 
   // Save dark mode preference
   useEffect(() => {
@@ -273,6 +271,8 @@ function ChatInterface({ userId, recipientId }: ChatInterfaceProps) {
         } else if (data.type === 'idle') {
           setIsProcessing(false);
         } else if (data.type === 'history') {
+          // Instant scroll for history load — no animation
+          scrollInstantRef.current = true;
           setMessages(
             data.messages.map((msg: any) => ({
               id: msg.id,
@@ -333,6 +333,7 @@ function ChatInterface({ userId, recipientId }: ChatInterfaceProps) {
 
         {/* Main Content Area */}
         <div
+          ref={scrollContainerRef}
           className="flex-1 overflow-y-auto relative"
           style={{
             scrollbarWidth: 'none',

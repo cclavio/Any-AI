@@ -106,6 +106,7 @@ export async function chatStream(c: Context) {
             recipientId: recipientId || "mentra-ai",
             content: turn.query,
             timestamp: turn.timestamp.toISOString(),
+            image: turn.photoDataUrl,
           },
           {
             id: `${Date.now()}-${index * 2 + 1}`,
