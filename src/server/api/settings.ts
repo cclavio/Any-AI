@@ -25,7 +25,7 @@ export async function getSettings(c: Context) {
       settings = await UserSettings.create({
         userId,
         theme: "dark",
-        chatHistoryEnabled: true,
+        chatHistoryEnabled: false,
       });
     }
 

@@ -1,5 +1,6 @@
 import type { AppSession, TranscriptionData } from "@mentra/sdk";
 import type { User } from "../session/User";
+import type { StoredPhoto } from "./PhotoManager";
 import { detectWakeWord, removeWakeWord } from "../utils/wake-word";
 
 interface SSEWriter {
@@ -9,9 +10,10 @@ interface SSEWriter {
 }
 
 /**
- * Callback signature for when a query is ready to be processed
+ * Callback signature for when a query is ready to be processed.
+ * Now includes a pre-captured photo (taken at wake word time).
  */
-export type OnQueryReadyCallback = (query: string, speakerId?: string) => Promise<void>;
+export type OnQueryReadyCallback = (query: string, speakerId?: string, prePhoto?: StoredPhoto | null) => Promise<void>;
 
 /**
  * TranscriptionManager — handles speech-to-text, wake word detection,
@@ -35,6 +37,9 @@ export class TranscriptionManager {
   // Transcript accumulation
   private currentTranscript: string = '';
   private transcriptionStartTime: number = 0;
+
+  // Pre-captured photo (taken at wake word time, before query is ready)
+  private pendingPhoto: Promise<StoredPhoto | null> | null = null;
 
   // Timers
   private silenceTimeout: NodeJS.Timeout | undefined;
@@ -97,7 +102,7 @@ export class TranscriptionManager {
       }
 
       // Wake word detected! Start listening
-      console.log(`🎤 Wake word detected: "${text}"`);
+      console.log(`⏱️ [WAKE] Wake word detected: "${text}"`);
       this.startListening(speakerId);
     }
 
@@ -119,6 +124,15 @@ export class TranscriptionManager {
     this.activeSpeakerId = speakerId;
     this.currentTranscript = '';
     this.transcriptionStartTime = Date.now();
+
+    // Capture photo NOW while user is still speaking (parallel with transcript accumulation)
+    const hasCamera = this.user.appSession?.capabilities?.hasCamera ?? false;
+    if (hasCamera) {
+      console.log(`📸 Pre-capturing photo at wake word for ${this.user.userId}`);
+      this.pendingPhoto = this.user.photo.takePhoto();
+    } else {
+      this.pendingPhoto = null;
+    }
 
     // Play start listening sound
     this.playStartSound();
@@ -162,11 +176,26 @@ export class TranscriptionManager {
     this.isProcessing = true;
     this.clearTimers();
 
-    console.log(`📝 Processing query: "${query}"`);
+    const silenceDetectedAt = Date.now();
+    const timeSinceWake = silenceDetectedAt - this.transcriptionStartTime;
+    console.log(`⏱️ [SILENCE] Query ready: "${query}" (${timeSinceWake}ms since wake word)`);
+
+    // Await the pre-captured photo (should already be done by now)
+    let prePhoto: StoredPhoto | null = null;
+    if (this.pendingPhoto) {
+      const photoWaitStart = Date.now();
+      try {
+        prePhoto = await this.pendingPhoto;
+      } catch (error) {
+        console.warn('Pre-captured photo failed:', error);
+      }
+      this.pendingPhoto = null;
+      console.log(`⏱️ [PHOTO-AWAIT] Pre-captured photo await: ${Date.now() - photoWaitStart}ms (${prePhoto ? 'got photo' : 'no photo'})`);
+    }
 
     try {
       if (this.onQueryReady) {
-        await this.onQueryReady(query, this.activeSpeakerId);
+        await this.onQueryReady(query, this.activeSpeakerId, prePhoto);
       }
     } catch (error) {
       console.error('Error processing query:', error);
@@ -184,6 +213,7 @@ export class TranscriptionManager {
     this.activeSpeakerId = undefined;
     this.currentTranscript = '';
     this.transcriptionStartTime = 0;
+    this.pendingPhoto = null;
     this.clearTimers();
   }
 

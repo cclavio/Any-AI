@@ -6,7 +6,9 @@
  */
 
 import type { User } from "../session/User";
+import type { StoredPhoto } from "./PhotoManager";
 import { generateResponse, type GenerateOptions } from "../agent/MentraAgent";
+import { broadcastChatEvent } from "../api/chat";
 import { formatForTTS } from "../utils/tts-formatter";
 import { isVisionQuery } from "../utils/wake-word";
 
@@ -19,34 +21,63 @@ export class QueryProcessor {
   constructor(private user: User) {}
 
   /**
-   * Process a user query and return the response
+   * Process a user query and return the response.
+   * prePhoto is a photo pre-captured at wake word time (already awaited).
    */
-  async processQuery(query: string, speakerId?: string): Promise<string> {
+  async processQuery(query: string, speakerId?: string, prePhoto?: StoredPhoto | null): Promise<string> {
     const session = this.user.appSession;
     if (!session) {
       console.error(`No active session for ${this.user.userId}`);
       return "I'm not connected to your glasses right now.";
     }
 
-    console.log(`🔄 Processing query for ${this.user.userId}: "${query.slice(0, 50)}..."`);
+    const pipelineStart = Date.now();
+    const lap = (label: string) => console.log(`⏱️ [${label}] +${Date.now() - pipelineStart}ms`);
+
+    console.log(`⏱️ [PIPELINE-START] Query: "${query.slice(0, 60)}..." | prePhoto: ${prePhoto ? 'yes' : 'no'}`);
 
     // Play processing sound
     await this.playProcessingSound();
+    lap('PROCESSING-SOUND');
 
-    // Step 1: Capture photo (always, if camera available)
+    // Step 1: Use pre-captured photo (taken at wake word time), or capture now as fallback
     let photos: Buffer[] = [];
+    let photoDataUrl: string | undefined;
     const hasCamera = session.capabilities?.hasCamera ?? false;
 
     if (hasCamera) {
-      const currentPhoto = await this.user.photo.takePhoto();
-      if (currentPhoto) {
+      if (prePhoto) {
+        console.log(`📸 Using pre-captured photo for ${this.user.userId}`);
         photos = this.user.photo.getPhotosForContext();
+        photoDataUrl = `data:${prePhoto.mimeType};base64,${prePhoto.buffer.toString("base64")}`;
+        lap('PHOTO-FROM-CACHE');
+      } else {
+        const currentPhoto = await this.user.photo.takePhoto();
+        if (currentPhoto) {
+          photos = this.user.photo.getPhotosForContext();
+          photoDataUrl = `data:${currentPhoto.mimeType};base64,${currentPhoto.buffer.toString("base64")}`;
+        }
+        lap('PHOTO-FALLBACK-CAPTURE');
       }
     }
 
+    // Broadcast user message to frontend (with photo if available)
+    broadcastChatEvent(this.user.userId, {
+      type: "message",
+      id: `user-${Date.now()}`,
+      senderId: this.user.userId,
+      recipientId: "mentra-ai",
+      content: query,
+      timestamp: new Date().toISOString(),
+      image: photoDataUrl,
+    });
+
+    // Broadcast processing state
+    broadcastChatEvent(this.user.userId, { type: "processing" });
+    lap('SSE-BROADCAST-USER-MSG');
+
     // Step 2: Fetch location if needed
     if (this.user.location.queryNeedsLocation(query)) {
-      // Request fresh location from SDK
       try {
         const locationData = await session.location.getLatestLocation({ accuracy: "high" });
         if (locationData) {
@@ -56,6 +87,7 @@ export class QueryProcessor {
       } catch (error) {
         console.warn(`Failed to get location for ${this.user.userId}:`, error);
       }
+      lap('LOCATION-FETCH');
     }
 
     // Step 3: Get local time
@@ -72,6 +104,7 @@ export class QueryProcessor {
       notifications: this.user.notifications.formatForPrompt(),
       conversationHistory: this.user.chatHistory.getRecentTurns(),
     };
+    lap('BUILD-CONTEXT');
 
     // Step 5: Generate response
     let response: string;
@@ -86,6 +119,21 @@ export class QueryProcessor {
       console.error(`Agent error for ${this.user.userId}:`, error);
       response = "I'm sorry, I had trouble processing that. Please try again.";
     }
+    lap('AI-GENERATE-RESPONSE');
+
+    // Broadcast AI response to frontend
+    broadcastChatEvent(this.user.userId, {
+      type: "message",
+      id: `ai-${Date.now()}`,
+      senderId: "mentra-ai",
+      recipientId: this.user.userId,
+      content: response,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Broadcast idle state
+    broadcastChatEvent(this.user.userId, { type: "idle" });
+    lap('SSE-BROADCAST-AI-MSG');
 
     // Step 6: Format response for output
     const formattedResponse = this.formatResponse(
@@ -96,12 +144,14 @@ export class QueryProcessor {
 
     // Step 7: Output response
     await this.outputResponse(formattedResponse, context.hasSpeakers, context.hasDisplay);
+    lap('OUTPUT-TO-GLASSES');
 
     // Step 8: Save to chat history
     const hadPhoto = photos.length > 0;
     await this.user.chatHistory.addTurn(query, response, hadPhoto);
+    lap('SAVE-HISTORY');
 
-    console.log(`✅ Query processed for ${this.user.userId}`);
+    console.log(`⏱️ [PIPELINE-DONE] Total: ${Date.now() - pipelineStart}ms`);
 
     return response;
   }

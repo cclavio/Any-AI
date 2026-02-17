@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Lottie from 'lottie-react';
+// @ts-ignore - Bun bundler doesn't resolve `export { X as default }` re-exports correctly
+import LottieImport from 'lottie-react';
+const Lottie: typeof LottieImport = (LottieImport as any)?.default ?? LottieImport;
 import Markdown from 'react-markdown';
 // @ts-ignore - JSON import
 import MentraLogoAnimation from '../../public/figma-parth-assets/anim/Mentralogo2.json';
@@ -27,24 +29,39 @@ interface ChatInterfaceProps {
   recipientId: string;
 }
 
+const THINKING_WORDS = [
+  'doodling',
+  'vibing',
+  'cooking',
+  'pondering',
+  'brewing',
+  'crafting',
+  'dreaming',
+  'computing',
+  'processing',
+  'brainstorming',
+  'conjuring',
+  'imagining',
+];
+
 /**
  * Memoized message bubble
  */
 const ChatBubble = memo(function ChatBubble({
   message,
   isOwnMessage,
-  index,
+  isNew,
 }: {
   message: Message;
   isOwnMessage: boolean;
-  index: number;
+  isNew: boolean;
 }) {
   return (
     <motion.div
       key={message.id}
-      initial={{ opacity: 0, y: 10 }}
+      initial={isNew ? { opacity: 0, y: 10 } : false}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
+      transition={{ duration: 0.3 }}
       className={`flex flex-col gap-2 ${isOwnMessage ? 'items-end' : 'items-start'}`}
     >
       {/* Avatar and Name */}
@@ -71,8 +88,8 @@ const ChatBubble = memo(function ChatBubble({
         <div
           className={`text-[var(--foreground)] leading-relaxed whitespace-pre-line pt-[8px] pb-[8px] pr-[16px] pl-[16px] rounded-[16px] inline-block max-w-[85vw] sm:max-w-lg text-[16px] ${
             isOwnMessage
-              ? 'bg-[var(--primary-foreground)] font-medium text-[var(--secondary-foreground:)]'
-              : 'bg-transparent pl-0 font-medium *:text-[var(--secondary-foreground:)]'
+              ? 'bg-[var(--primary-foreground)] font-medium text-[var(--secondary-foreground)]'
+              : 'bg-transparent pl-0 font-medium *:text-[var(--secondary-foreground)]'
           }`}
           style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
         >
@@ -127,29 +144,16 @@ const ChatBubble = memo(function ChatBubble({
  * ChatInterface component - Beautiful dark-themed chat UI
  */
 function ChatInterface({ userId, recipientId }: ChatInterfaceProps) {
-  const thinkingWords = [
-    'doodling',
-    'vibing',
-    'cooking',
-    'pondering',
-    'brewing',
-    'crafting',
-    'dreaming',
-    'computing',
-    'processing',
-    'brainstorming',
-    'conjuring',
-    'imagining',
-  ];
-
   const [messages, setMessages] = useState<Message[]>([]);
   const [hasConnectedBefore] = useState(() => {
     return sessionStorage.getItem('mentra-session-connected') === 'true';
   });
   const [isProcessing, setIsProcessing] = useState(false);
   const [thinkingWord, setThinkingWord] = useState(() =>
-    thinkingWords[Math.floor(Math.random() * thinkingWords.length)]
+    THINKING_WORDS[Math.floor(Math.random() * THINKING_WORDS.length)]
   );
+  // Track which message IDs have been rendered to avoid re-animating old messages
+  const renderedIdsRef = useRef<Set<string>>(new Set());
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const [imageScale, setImageScale] = useState(1);
   const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
@@ -243,7 +247,7 @@ function ChatInterface({ userId, recipientId }: ChatInterfaceProps) {
 
           if (isRelevant) {
             if (data.senderId === userId) {
-              const randomWord = thinkingWords[Math.floor(Math.random() * thinkingWords.length)];
+              const randomWord = THINKING_WORDS[Math.floor(Math.random() * THINKING_WORDS.length)];
               setThinkingWord(randomWord);
               setIsProcessing(true);
             } else {
@@ -263,7 +267,7 @@ function ChatInterface({ userId, recipientId }: ChatInterfaceProps) {
             ]);
           }
         } else if (data.type === 'processing') {
-          const randomWord = thinkingWords[Math.floor(Math.random() * thinkingWords.length)];
+          const randomWord = THINKING_WORDS[Math.floor(Math.random() * THINKING_WORDS.length)];
           setThinkingWord(randomWord);
           setIsProcessing(true);
         } else if (data.type === 'idle') {
@@ -292,7 +296,7 @@ function ChatInterface({ userId, recipientId }: ChatInterfaceProps) {
     return () => {
       eventSource.close();
     };
-  }, [userId, recipientId, thinkingWords]);
+  }, [userId, recipientId]);
 
   // Render Settings page if on settings
   if (currentPage === 'settings') {
@@ -416,14 +420,18 @@ function ChatInterface({ userId, recipientId }: ChatInterfaceProps) {
               className="px-[24px] py-6 pb-[150px] relative z-20"
             >
               <div className="max-w-3xl mx-auto space-y-6">
-                {messages.map((message, index) => (
-                  <ChatBubble
-                    key={message.id}
-                    message={message}
-                    isOwnMessage={message.senderId === userId}
-                    index={index}
-                  />
-                ))}
+                {messages.map((message) => {
+                  const isNew = !renderedIdsRef.current.has(message.id);
+                  if (isNew) renderedIdsRef.current.add(message.id);
+                  return (
+                    <ChatBubble
+                      key={message.id}
+                      message={message}
+                      isOwnMessage={message.senderId === userId}
+                      isNew={isNew}
+                    />
+                  );
+                })}
 
                 {/* Processing Indicator */}
                 {isProcessing && (

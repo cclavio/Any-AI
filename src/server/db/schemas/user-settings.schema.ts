@@ -20,7 +20,7 @@ export interface IUserSettings extends Document {
 const UserSettingsSchema = new Schema<IUserSettings>({
   userId: { type: String, required: true, unique: true, index: true },
   theme: { type: String, enum: ['light', 'dark'], default: 'dark' },
-  chatHistoryEnabled: { type: Boolean, default: true },
+  chatHistoryEnabled: { type: Boolean, default: false },
 }, { timestamps: true });
 
 export const UserSettings = mongoose.model<IUserSettings>('UserSettings', UserSettingsSchema);

@@ -30,7 +30,7 @@ export class ChatHistoryManager {
   private recentTurns: ConversationTurn[] = [];
 
   // User settings cache
-  private chatHistoryEnabled: boolean = true;
+  private chatHistoryEnabled: boolean = false;
 
   constructor(private user: User) {}
 

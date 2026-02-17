@@ -48,8 +48,8 @@ export class MentraAI extends AppServer {
     user.setAppSession(session);
 
     // Set up transcription callback for query processing
-    user.transcription.setOnQueryReady(async (query, speakerId) => {
-      await user.queryProcessor.processQuery(query, speakerId);
+    user.transcription.setOnQueryReady(async (query, speakerId, prePhoto) => {
+      await user.queryProcessor.processQuery(query, speakerId, prePhoto);
     });
 
     // Wire up location updates
