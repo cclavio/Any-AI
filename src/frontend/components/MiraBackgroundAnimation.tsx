@@ -11,7 +11,7 @@ export const MiraBackgroundAnimation: React.FC<MiraBackgroundAnimationProps> = (
       <div className="mira-circle mira-circle-1"></div>
 
       {/* Pink circle - bottom left */}
-      <div className="mira-circle mira-circle-2 -mb-[320px]"></div>
+      <div className="mira-circle mira-circle-2"></div>
 
       {/* Red circle - bottom center */}
       <div className="mira-circle mira-circle-3"></div>

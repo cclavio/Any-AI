@@ -17,7 +17,7 @@
 .mira-circle {
   position: absolute;
   border-radius: 100%;
-  filter: blur(60px);
+  filter: blur(60px); 
   will-change: transform;
   opacity: 0.5;
 }
@@ -39,10 +39,10 @@
   width: 304px;
   height: 204px;
   background: #ff607F;
-  top: 65%;
-  left: 30%;
-  transform: translate(50%, -40%);
-  rotate: -52deg;
+  top: 45%;
+  left:-30%;
+  transform: translate(50%, -70%);
+  rotate: 72deg;
 }
 
 /* Red circle - bottom right (144 - 4:48 position) */
@@ -50,8 +50,8 @@
   width: 304px;
   height: 204px;
   background: #ff2d55;
-  top: 65%;
-  right: 32%;
+  top: 55%;
+  right: 22%;
   transform: translate(-15%, -70%);
   rotate: 32deg;
 }
