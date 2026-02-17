@@ -44,13 +44,14 @@ export const searchTool = createTool({
 
       const results = await response.text();
 
-      // Truncate if too long
-      const maxLength = 4000;
+      // Truncate aggressively to reduce LLM processing time
+      // 2000 chars is usually enough for good results
+      const maxLength = 2000;
       const truncated = results.length > maxLength
-        ? results.slice(0, maxLength) + "... (truncated)"
+        ? results.slice(0, maxLength) + "..."
         : results;
 
-      console.log(`✅ Search returned ${results.length} characters`);
+      console.log(`✅ Search returned ${results.length} chars (truncated to ${truncated.length})`);
 
       return { results: truncated };
 

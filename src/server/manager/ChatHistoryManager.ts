@@ -87,11 +87,6 @@ export class ChatHistoryManager {
    * Add a conversation turn
    */
   async addTurn(query: string, response: string, hadPhoto: boolean = false): Promise<void> {
-    if (!this.chatHistoryEnabled) {
-      console.log(`📚 Chat history disabled for ${this.user.userId}, skipping save`);
-      return;
-    }
-
     const turn: ConversationTurn = {
       query,
       response,
@@ -99,12 +94,18 @@ export class ChatHistoryManager {
       hadPhoto,
     };
 
-    // Add to in-memory cache
+    // ALWAYS add to in-memory cache for session memory (regardless of persistence setting)
     this.recentTurns.push(turn);
 
     // Trim in-memory cache to max turns
     if (this.recentTurns.length > CONVERSATION_SETTINGS.maxTurns) {
       this.recentTurns = this.recentTurns.slice(-CONVERSATION_SETTINGS.maxTurns);
+    }
+
+    // Only persist to MongoDB if chat history is enabled
+    if (!this.chatHistoryEnabled) {
+      console.log(`📚 Chat history disabled for ${this.user.userId}, keeping in-memory only`);
+      return;
     }
 
     // Save to MongoDB

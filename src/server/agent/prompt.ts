@@ -200,12 +200,21 @@ function buildContextSection(context: AgentContext): string {
   // Location
   if (context.location) {
     const loc = context.location;
-    let locationStr = `${loc.city}, ${loc.state}, ${loc.country}`;
-    if (loc.neighborhood) locationStr += ` (${loc.neighborhood})`;
+    // Build location string with as much specificity as available
+    let locationStr = '';
+    if (loc.streetAddress) {
+      locationStr = `${loc.streetAddress}, `;
+    }
+    if (loc.neighborhood) {
+      locationStr += `${loc.neighborhood}, `;
+    }
+    locationStr += `${loc.city}, ${loc.state}, ${loc.country}`;
+
     if (loc.weather) {
       locationStr += ` | Weather: ${loc.weather.temperature}°F (${loc.weather.temperatureCelsius}°C), ${loc.weather.condition}`;
     }
     sections.push(`**Location:** ${locationStr}`);
+    sections.push(`**Location Note:** When the user asks where they are, describe the location using the neighborhood, street name, and nearby landmarks or cross streets - but do NOT read out the exact street number (GPS addresses can be off by a few numbers). Use the full address internally for finding nearby places, directions, and mapping.`);
   }
 
   // Time

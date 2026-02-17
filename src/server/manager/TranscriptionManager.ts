@@ -102,7 +102,7 @@ export class TranscriptionManager {
       }
 
       // Wake word detected! Start listening
-      console.log(`⏱️ [WAKE] Wake word detected: "${text}"`);
+      console.log(`⏱️ [WAKE] Wake word detected: "${text}" (isFinal=${isFinal ?? false})`);
       this.startListening(speakerId);
     }
 
@@ -135,7 +135,8 @@ export class TranscriptionManager {
     }
 
     // Play start listening sound
-    this.playStartSound();
+    // NOTE: Don't do this because it interferes with the Mentra Live's camera's "snap" sound
+    //this.playStartSound();
 
     // Start max listening timeout
     this.maxListeningTimeout = setTimeout(() => {
