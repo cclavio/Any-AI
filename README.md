@@ -1,60 +1,78 @@
-# MentraOS-Camera-Example-App
+<p align="center">
+  <img src="https://imagedelivery.net/nrc8B2Lk8UIoyW7fY8uHVg/97f4b31b-f239-444d-4cc4-82ee94f5be00/square" alt="Mentra AI" width="120" height="120" />
+</p>
 
-This is a simple example app which demonstrates how to use the MentraOS Camera API to take photos and display them in a webview.
+<h1 align="center">Mentra AI</h1>
 
-You could also send the photo to an AI api, store it in a database or cloud storage, send it to Roboflow, or do other processing.
+<p align="center">
+  <strong>Voice-first AI assistant for smart glasses</strong>
+</p>
 
-### Install MentraOS on your phone
+<p align="center">
+  Say "Hey Mentra", ask a question, and get a concise spoken or displayed response.<br/>
+  See what you see. Search the web. Remember context.
+</p>
 
-MentraOS install links: [mentra.glass/install](https://mentra.glass/install)
+---
 
-### (Easiest way to get started) Set up ngrok
+## What It Does
 
-1. `brew install ngrok`
+Mentra AI is an intelligent voice assistant for smart glasses. It adapts to your hardware—whether your glasses have a HUD display, camera, or speakers—and delivers responses in the most appropriate format.
 
-2. Make an ngrok account
+- **Voice activation** — Say "Hey Mentra" to start
+- **Vision** — Answers questions about what you're seeing (camera glasses)
+- **Web search** — Real-time search with concise summaries
+- **Context aware** — Knows your location, time, weather, and conversation history
 
-3. [Use ngrok to make a static address/URL](https://dashboard.ngrok.com/)
+## Supported Glasses
 
-### Register your App with MentraOS
+| Type | Input | Output |
+|------|-------|--------|
+| HUD + Mic | Voice | Text on display |
+| Camera + Speaker + Mic | Voice + Camera | Spoken responses |
 
-1. Navigate to [console.mentra.glass](https://console.mentra.glass/)
+## Getting Started
 
-2. Click "Sign In", and log in with the same account you're using for MentraOS
+### Prerequisites
 
-3. Click "Create App"
+1. Install MentraOS: [get.mentraglass.com](https://get.mentraglass.com)
+2. Install Bun: [bun.sh](https://bun.sh/docs/installation)
+3. Set up ngrok: `brew install ngrok` and create a [static URL](https://dashboard.ngrok.com/)
 
-4. Set a unique package name like `com.yourName.yourAppName`
+### Register Your App
 
-5. For "Public URL", enter your Ngrok's static URL
+1. Go to [console.mentra.glass](https://console.mentra.glass/)
+2. Sign in and click "Create App"
+3. Set a unique package name (e.g., `com.yourName.mentraAI`)
+4. Enter your ngrok URL as "Public URL"
+5. Add **microphone** and **camera** permissions
 
-6. In the edit app screen, add the microphone permission
+### Run It
 
-### Get your App running!
+```bash
+# Install
+git clone https://github.com/Mentra-Community/New-Mentra-AI.git
+cd New-Mentra-AI
+bun install
+cp .env.example .env
 
-1. [Install bun](https://bun.sh/docs/installation)
+# Configure .env with your credentials
+# PORT, PACKAGE_NAME, MENTRAOS_API_KEY (required)
+# GOOGLE_GENERATIVE_AI_API_KEY, GOOGLE_MAPS_API_KEY (optional)
 
-2. Clone this repo locally: `git clone https://github.com/Mentra-Community/MentraOS-Camera-Example-App`
+# Start
+bun run dev
 
-3. cd into your repo, then type `bun install`
+# Expose via ngrok
+ngrok http --url=<YOUR_NGROK_URL> 3000
+```
 
-5. Set up your environment variables:
-   * Create a `.env` file in the root directory by copying the example: `cp .env.example .env`
-   * Edit the `.env` file with your app details:
-     ```
-     PORT=3000
-     PACKAGE_NAME=com.yourName.yourAppName
-     MENTRAOS_API_KEY=your_api_key_from_console
-     ```
-   * Make sure the `PACKAGE_NAME` matches what you registered in the MentraOS Console
-   * Get your `API_KEY` from the MentraOS Developer Console
+## Documentation
 
-6. Run your app with `bun run dev`
+- [MentraOS Docs](https://docs.mentra.glass)
+- [Developer Console](https://console.mentra.glass)
+- [Architecture Details](./ARCHITECTURE_PLAN.md)
 
-7. To expose your app to the internet (and thus MentraOS) with ngrok, run: `ngrok http --url=<YOUR_NGROK_URL_HERE> 3000`
-    * `3000` is the port. It must match what is in the app config. For example, if you entered `port: 8080`, use `8080` for ngrok instead.
+## License
 
-
-### Next Steps
-
-Check out the full documentation at [docs.mentra.glass](https://docs.mentra.glass/camera)
+MIT
