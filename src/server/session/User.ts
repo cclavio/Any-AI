@@ -16,9 +16,23 @@ import { QueryProcessor } from "../manager/QueryProcessor";
  * Created when a user connects (glasses or webview) and
  * destroyed when the session is cleaned up.
  */
+/** Known glasses models */
+export const GLASSES_MODELS = {
+  EVEN_REALITIES_G1: "Even Realities G1",
+  MENTRA_LIVE: "Mentra Live",
+} as const;
+
 export class User {
   /** Active glasses connection, null when webview-only */
   appSession: AppSession | null = null;
+
+  /** Device model name — fallback is Mentra Live (camera glasses) */
+  glassesModel: string = GLASSES_MODELS.MENTRA_LIVE;
+
+  /** True if the connected glasses have a camera (i.e. not a HUD-only device) */
+  get isCameraGlasses(): boolean {
+    return this.glassesModel !== GLASSES_MODELS.EVEN_REALITIES_G1;
+  }
 
   /** Photo capture, storage, and SSE broadcasting */
   photo: PhotoManager;

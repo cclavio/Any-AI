@@ -30,6 +30,7 @@ export interface GenerateOptions {
     hasDisplay: boolean;
     hasSpeakers: boolean;
     hasCamera: boolean;
+    hasPhotos: boolean;
     glassesType: 'display' | 'camera';
     location: LocationContext | null;
     localTime: string;
@@ -79,6 +80,7 @@ export async function generateResponse(options: GenerateOptions): Promise<Genera
     hasDisplay: context.hasDisplay,
     hasSpeakers: context.hasSpeakers,
     hasCamera: context.hasCamera,
+    hasPhotos: context.hasPhotos,
     hasMicrophone: true,  // Always true
     glassesType: context.glassesType,
     responseMode,
@@ -108,7 +110,7 @@ export async function generateResponse(options: GenerateOptions): Promise<Genera
   }
 
   console.log(`🤖 Generating response for: "${query.slice(0, 50)}${query.length > 50 ? '...' : ''}"`);
-  console.log(`   Mode: ${responseMode}, Photos: ${photos?.length || 0}, History: ${context.conversationHistory.length}`);
+  console.log(`   Mode: ${responseMode}, Photos: ${photos?.length || 0}, hasPhotos: ${context.hasPhotos}, History: ${context.conversationHistory.length}`);
 
   let toolCallCount = 0;
 

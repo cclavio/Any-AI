@@ -17,6 +17,7 @@ export interface AgentContext {
   hasDisplay: boolean;      // HUD glasses
   hasSpeakers: boolean;     // Audio output
   hasCamera: boolean;       // Can take photos
+  hasPhotos: boolean;       // Whether photos were actually captured for this query
   hasMicrophone: boolean;   // Always true for voice input
   glassesType: 'display' | 'camera';  // Type of glasses connected
 
@@ -48,9 +49,11 @@ export function buildSystemPrompt(context: AgentContext): string {
     buildToolUsageSection(),
   ];
 
-  // Vision section only if device has camera
-  if (context.hasCamera) {
+  // Vision section — depends on camera AND whether photo was actually captured
+  if (context.hasCamera && context.hasPhotos) {
     sections.push(buildVisionSection());
+  } else if (context.hasCamera && !context.hasPhotos) {
+    sections.push(buildVisionFailedSection());
   }
 
   // Context sections
@@ -190,6 +193,17 @@ STEP 2 — RESPOND BASED ON CLASSIFICATION:
 CRITICAL - Camera Perspective: The camera shows what the user is LOOKING AT, not them. I'm seeing FROM their eyes, not AT them. Any person visible is someone else - NEVER the user.
 
 PREVIOUS IMAGES: I may receive previous photos for context. These help me answer follow-up questions like "what was that thing I was looking at earlier?"`;
+}
+
+/**
+ * Vision failed section — camera exists but no photo was captured for this query
+ */
+function buildVisionFailedSection(): string {
+  return `## Vision (Camera)
+
+The glasses have a camera, but NO photo was captured for this query (camera error or non-visual query).
+Do NOT reference, describe, or mention any image. Answer using your knowledge, location data, and web search instead.
+If the user asked a visual question ("what is this?", "what am I looking at?"), let them know the camera couldn't capture a photo and ask them to try again.`;
 }
 
 /**

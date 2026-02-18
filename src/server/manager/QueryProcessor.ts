@@ -24,8 +24,9 @@ export class QueryProcessor {
   /**
    * Process a user query and return the response.
    * prePhoto is a photo pre-captured at wake word time (already awaited).
+   * isVisual indicates whether the query was classified as needing the camera photo.
    */
-  async processQuery(query: string, speakerId?: string, prePhoto?: StoredPhoto | null): Promise<string> {
+  async processQuery(query: string, speakerId?: string, prePhoto?: StoredPhoto | null, isVisual?: boolean): Promise<string> {
     const session = this.user.appSession;
     if (!session) {
       console.error(`No active session for ${this.user.userId}`);
@@ -42,14 +43,14 @@ export class QueryProcessor {
     const hasCamera = !hasDisplay;
     const hasSpeakers = !hasDisplay;
 
-    console.log(`⏱️ [PIPELINE-START] Query: "${query.slice(0, 60)}..." | prePhoto: ${prePhoto ? 'yes' : 'no'} | glasses: ${hasDisplay ? 'display' : 'camera'}`);
+    console.log(`⏱️ [PIPELINE-START] Query: "${query.slice(0, 60)}..." | prePhoto: ${prePhoto ? 'yes' : 'no'} | isVisual: ${isVisual ?? 'n/a'} | glasses: ${hasDisplay ? 'display' : 'camera'}`);
 
     // Start looping processing sound (fire and forget - don't block pipeline)
     this.startProcessingSound(hasDisplay);
     this.showStatus("Processing...", hasDisplay);
     lap('PROCESSING-SOUND');
 
-    // Step 1: Use pre-captured photo (taken at wake word time), or capture now as fallback
+    // Step 1: Use pre-captured photo, or fallback capture (only for visual queries)
     let photos: Buffer[] = [];
     let photoDataUrl: string | undefined;
 
@@ -59,13 +60,25 @@ export class QueryProcessor {
         photos = this.user.photo.getPhotosForContext();
         photoDataUrl = `data:${prePhoto.mimeType};base64,${prePhoto.buffer.toString("base64")}`;
         lap('PHOTO-FROM-CACHE');
-      } else {
-        const currentPhoto = await this.user.photo.takePhoto();
+      } else if (isVisual) {
+        // Visual query with no pre-photo — fallback capture with 10s timeout
+        console.log(`📸 Visual query but no pre-photo, attempting fallback capture for ${this.user.userId}`);
+        let timeoutId: NodeJS.Timeout;
+        const currentPhoto = await Promise.race([
+          this.user.photo.takePhoto(),
+          new Promise<null>(r => { timeoutId = setTimeout(() => r(null), 10000); }),
+        ]);
+        clearTimeout(timeoutId!);
         if (currentPhoto) {
           photos = this.user.photo.getPhotosForContext();
           photoDataUrl = `data:${currentPhoto.mimeType};base64,${currentPhoto.buffer.toString("base64")}`;
+        } else {
+          console.warn(`📸 Fallback photo capture failed/timed out for ${this.user.userId}`);
         }
         lap('PHOTO-FALLBACK-CAPTURE');
+      } else {
+        // Non-visual query, no pre-photo — skip entirely
+        lap('PHOTO-SKIPPED-NON-VISUAL');
       }
     }
 
@@ -102,10 +115,12 @@ export class QueryProcessor {
     const localTime = this.getLocalTime();
 
     // Step 4: Build agent context (using snapshotted capabilities from pipeline start)
+    const hasPhotos = photoDataUrl !== undefined; // current query's photo, not stale ones
     const context: GenerateOptions["context"] = {
       hasDisplay,
       hasSpeakers,
       hasCamera,
+      hasPhotos,
       glassesType: hasDisplay ? 'display' : 'camera',
       location: this.user.location.getCachedContext(),
       localTime,

@@ -5,7 +5,14 @@
   "module": "src/index.ts",
   "scripts": {
     "dev": "NODE_ENV=development bun --watch src/index.ts",
-    "start": "bun src/index.ts"
+    "start": "bun src/index.ts",
+    "test:visual": "bun test ./src/server/test/visual/visual-classifier.test.ts",
+    "test:visual:easy": "EVAL_DIFFICULTY=easy bun test ./src/server/test/visual/visual-classifier.test.ts",
+    "test:visual:medium": "EVAL_DIFFICULTY=medium bun test ./src/server/test/visual/visual-classifier.test.ts",
+    "test:visual:hard": "EVAL_DIFFICULTY=hard bun test ./src/server/test/visual/visual-classifier.test.ts",
+    "test:visual:realistic": "EVAL_DIFFICULTY=realistic bun test ./src/server/test/visual/visual-classifier.test.ts",
+    "test:prompt": "bun test ./src/server/test/visual/prompt-builder.test.ts",
+    "test": "bun test ./src/server/test/"
   },
   "author": "Mentra Community",
   "license": "ISC",

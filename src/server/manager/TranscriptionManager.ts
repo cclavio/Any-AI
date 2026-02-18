@@ -2,6 +2,7 @@ import type { AppSession, TranscriptionData } from "@mentra/sdk";
 import type { User } from "../session/User";
 import type { StoredPhoto } from "./PhotoManager";
 import { detectWakeWord, removeWakeWord } from "../utils/wake-word";
+import { isVisualQuery } from "../agent/visual-classifier";
 
 interface SSEWriter {
   write: (data: string) => void;
@@ -11,9 +12,9 @@ interface SSEWriter {
 
 /**
  * Callback signature for when a query is ready to be processed.
- * Now includes a pre-captured photo (taken at wake word time).
+ * Includes pre-captured photo (taken at wake word time) and visual classification.
  */
-export type OnQueryReadyCallback = (query: string, speakerId?: string, prePhoto?: StoredPhoto | null) => Promise<void>;
+export type OnQueryReadyCallback = (query: string, speakerId?: string, prePhoto?: StoredPhoto | null, isVisual?: boolean) => Promise<void>;
 
 /**
  * TranscriptionManager — handles speech-to-text, wake word detection,
@@ -57,6 +58,9 @@ export class TranscriptionManager {
 
   // Callback for when query is ready
   private onQueryReady: OnQueryReadyCallback | null = null;
+
+  // Session disconnect safety — prevents zombie query processing
+  private destroyed = false;
 
   constructor(private user: User) {}
 
@@ -205,22 +209,57 @@ export class TranscriptionManager {
     const timeSinceWake = silenceDetectedAt - this.transcriptionStartTime;
     console.log(`⏱️ [SILENCE] Query ready: "${query}" (${timeSinceWake}ms since wake word)`);
 
-    // Await the pre-captured photo (should already be done by now)
+    // Smart photo await: classify query first, then decide whether to wait for photo
+    const hasCamera = this.user.appSession?.capabilities?.hasCamera ?? false;
+
+    // 1. Fire classifier immediately (photo still in-flight from wake word)
+    const classifierStart = Date.now();
+    const isVisual = hasCamera ? await isVisualQuery(query) : false;
+    console.log(`⏱️ [CLASSIFIER] isVisual=${isVisual} (${Date.now() - classifierStart}ms)`);
+
+    // 2. Bail if session was destroyed while classifier was running
+    if (this.destroyed) {
+      console.log(`🛑 Session destroyed during classifier for ${this.user.userId}, aborting`);
+      return;
+    }
+
+    // 3. Now decide how to handle the photo
     let prePhoto: StoredPhoto | null = null;
     if (this.pendingPhoto) {
       const photoWaitStart = Date.now();
       try {
-        prePhoto = await this.pendingPhoto;
+        if (isVisual) {
+          // VISUAL — wait for photo (10s safety timeout)
+          let timeoutId: NodeJS.Timeout;
+          prePhoto = await Promise.race([
+            this.pendingPhoto,
+            new Promise<null>(r => { timeoutId = setTimeout(() => r(null), 10000); }),
+          ]);
+          clearTimeout(timeoutId!);
+        } else {
+          // NON-VISUAL — grab photo only if already settled
+          // setTimeout(0) = next macrotask, lets an already-settled photo win the race
+          prePhoto = await Promise.race([
+            this.pendingPhoto,
+            new Promise<null>(r => setTimeout(() => r(null), 0)),
+          ]);
+        }
       } catch (error) {
         console.warn('Pre-captured photo failed:', error);
       }
       this.pendingPhoto = null;
-      console.log(`⏱️ [PHOTO-AWAIT] Pre-captured photo await: ${Date.now() - photoWaitStart}ms (${prePhoto ? 'got photo' : 'no photo'})`);
+      console.log(`⏱️ [PHOTO-AWAIT] ${Date.now() - photoWaitStart}ms | visual=${isVisual} | photo=${prePhoto ? 'yes' : 'no'}`);
+    }
+
+    // 4. Bail if session destroyed during photo wait
+    if (this.destroyed) {
+      console.log(`🛑 Session destroyed during photo await for ${this.user.userId}, aborting`);
+      return;
     }
 
     try {
       if (this.onQueryReady) {
-        await this.onQueryReady(query, this.activeSpeakerId, prePhoto);
+        await this.onQueryReady(query, this.activeSpeakerId, prePhoto, isVisual);
       }
     } catch (error) {
       console.error('Error processing query:', error);
@@ -359,6 +398,7 @@ export class TranscriptionManager {
    * Tear down listener and drop all SSE clients
    */
   destroy(): void {
+    this.destroyed = true;
     this.clearTimers();
     this.unsubscribe?.();
     this.unsubscribe = null;

@@ -48,8 +48,8 @@ export class MentraAI extends AppServer {
     user.setAppSession(session);
 
     // Set up transcription callback for query processing
-    user.transcription.setOnQueryReady(async (query, speakerId, prePhoto) => {
-      await user.queryProcessor.processQuery(query, speakerId, prePhoto);
+    user.transcription.setOnQueryReady(async (query, speakerId, prePhoto, isVisual) => {
+      await user.queryProcessor.processQuery(query, speakerId, prePhoto, isVisual);
     });
 
     // Wire up location updates
@@ -80,6 +80,20 @@ export class MentraAI extends AppServer {
         console.log(`🕐 Updated timezone: ${newTimezone}`);
       }
     });
+
+    // Track device model — arrives async via DEVICE_STATE_UPDATE
+    session.device.state.modelName.onChange((newModel) => {
+      if (newModel) {
+        user.glassesModel = newModel;
+        console.log(`📱 Device model: ${newModel} for ${userId} (camera: ${user.isCameraGlasses})`);
+      }
+    });
+
+    // DEBUG: Check if modelName.value populates after 10s
+    setTimeout(() => {
+      const delayedModel = session.device.state.modelName.value;
+      console.log(`🧪 [DEBUG] modelName.value after 10s: ${delayedModel ?? 'STILL NULL'} for ${userId}`);
+    }, 10000);
 
     // Play welcome message (with delay for camera-only glasses)
     this.playWelcome(session, sessionId);
