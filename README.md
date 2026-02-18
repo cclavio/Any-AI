@@ -51,8 +51,8 @@ Mentra AI is an intelligent voice assistant for smart glasses. It adapts to your
 
 ```bash
 # Install
-git clone https://github.com/Mentra-Community/New-Mentra-AI.git
-cd New-Mentra-AI
+git clone https://github.com/Mentra-Community/Mentra-AI.git
+cd Mentra-AI
 bun install
 cp .env.example .env
 
