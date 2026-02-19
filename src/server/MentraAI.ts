@@ -120,7 +120,7 @@ export class MentraAI extends AppServer {
           session.audio.playAudio({ audioUrl: WELCOME_SOUND_URL }).catch((err) => {
             console.debug("Welcome audio failed:", err);
           });
-        }, 2000);
+        }, 1000);
       }
     }
   }
