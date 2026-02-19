@@ -320,6 +320,8 @@ function ChatInterface({ userId, recipientId, onEnableDebugMode }: ChatInterface
 
       eventSource.onerror = () => {
         eventSource.close();
+        setSessionActive(false);
+        setIsProcessing(false);
         const delay = Math.min(1000 * 2 ** reconnectAttempts, MAX_RECONNECT_DELAY);
         reconnectAttempts++;
         console.log(`[ChatInterface] SSE disconnected, reconnecting in ${delay}ms (attempt ${reconnectAttempts})`);

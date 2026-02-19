@@ -13,6 +13,7 @@ import { getThemePreference, setThemePreference } from "../api/storage";
 import { getLatestPhoto, getPhotoData, getPhotoBase64 } from "../api/photo";
 import { getSettings, updateSettings } from "../api/settings";
 import { chatStream } from "../api/chat";
+import { killSession } from "../api/debug";
 
 export const api = new Hono();
 
@@ -40,3 +41,8 @@ api.patch("/settings", updateSettings);
 api.get("/latest-photo", getLatestPhoto);
 api.get("/photo/:requestId", getPhotoData);
 api.get("/photo-base64/:requestId", getPhotoBase64);
+
+// Debug (dev only)
+if (process.env.NODE_ENV === "development") {
+  api.post("/debug/kill-session", killSession);
+}

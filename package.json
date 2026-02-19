@@ -12,6 +12,7 @@
     "test:visual:hard": "EVAL_DIFFICULTY=hard bun test ./src/server/test/visual/visual-classifier.test.ts",
     "test:visual:realistic": "EVAL_DIFFICULTY=realistic bun test ./src/server/test/visual/visual-classifier.test.ts",
     "test:prompt": "bun test ./src/server/test/visual/prompt-builder.test.ts",
+    "test:disconnect": "bun test ./src/server/test/unit-tests/session-disconnect.test.ts",
     "test": "bun test ./src/server/test/"
   },
   "author": "Mentra Community",
