@@ -164,6 +164,7 @@ function ChatInterface({ userId, recipientId }: ChatInterfaceProps) {
     return saved ? JSON.parse(saved) : false;
   });
   const [chatHistoryEnabled, setChatHistoryEnabled] = useState(false);
+  const [sessionActive, setSessionActive] = useState<boolean | null>(null);
   const [currentPage, setCurrentPage] = useState<'chat' | 'settings'>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -283,6 +284,16 @@ function ChatInterface({ userId, recipientId }: ChatInterfaceProps) {
               image: msg.image,
             }))
           );
+        } else if (data.type === 'session_started') {
+          setSessionActive(true);
+        } else if (data.type === 'session_ended') {
+          setSessionActive(false);
+          setIsProcessing(false);
+        } else if (data.type === 'session_heartbeat') {
+          setSessionActive(data.active);
+          if (!data.active) {
+            setIsProcessing(false);
+          }
         }
       } catch (error) {
         console.error('[ChatInterface] Error parsing SSE message:', error);
@@ -316,6 +327,25 @@ function ChatInterface({ userId, recipientId }: ChatInterfaceProps) {
       className={`h-screen flex overflow-hidden ${isDarkMode ? 'dark' : ''}`}
       style={{ backgroundColor: 'var(--background)' }}
     >
+      {/* Session disconnected banner — fixed on top of everything */}
+      <AnimatePresence>
+        {sessionActive === false && (
+          <motion.div
+            initial={{ y: -40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -40, opacity: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-2 px-4 py-2 bg-red-500/15 backdrop-blur-sm border-b border-red-500/20"
+          >
+            <svg className="w-3.5 h-3.5 text-red-400 animate-spin" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-25" />
+              <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+            </svg>
+            <span className="text-red-400 text-xs font-medium">Disconnected — attempting to reconnect</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Main Chat Content */}
       <motion.div
         className="flex-1 flex flex-col relative"

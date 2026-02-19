@@ -7,6 +7,7 @@
 
 import { AppServer, AppSession } from "@mentra/sdk";
 import { sessions } from "./manager/SessionManager";
+import { broadcastChatEvent } from "./api/chat";
 import { connectDB } from "./db/connection";
 
 const WELCOME_SOUND_URL = process.env.WELCOME_SOUND_URL;
@@ -98,6 +99,14 @@ export class MentraAI extends AppServer {
     // Play welcome message (with delay for camera-only glasses)
     this.playWelcome(session, sessionId);
 
+    // Notify frontend that glasses session is active
+    const hasDisplay = session.capabilities?.hasDisplay ?? false;
+    broadcastChatEvent(userId, {
+      type: "session_started",
+      glassesType: hasDisplay ? "display" : "camera",
+      timestamp: new Date().toISOString(),
+    });
+
     console.log(`✅ Mentra AI ready for ${userId}`);
   }
 
@@ -134,6 +143,13 @@ export class MentraAI extends AppServer {
     reason: string,
   ): Promise<void> {
     console.log(`👋 Mentra AI session ended for ${userId}: ${reason}`);
+
+    // Notify frontend BEFORE cleanup — chatClients is independent from sessions
+    broadcastChatEvent(userId, {
+      type: "session_ended",
+      reason,
+      timestamp: new Date().toISOString(),
+    });
 
     try {
       sessions.remove(userId);

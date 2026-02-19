@@ -49,7 +49,7 @@ function removeChatClient(userId: string, writerId: string) {
  * Broadcast a chat event to all clients for a user
  */
 export function broadcastChatEvent(userId: string, event: {
-  type: 'message' | 'processing' | 'idle' | 'history';
+  type: 'message' | 'processing' | 'idle' | 'history' | 'session_started' | 'session_ended' | 'session_heartbeat';
   [key: string]: unknown;
 }) {
   const clients = chatClients.get(userId);
@@ -123,14 +123,20 @@ export async function chatStream(c: Context) {
       }
     }
 
-    // Keep connection alive with heartbeats
+    // Session heartbeat — periodic status ping with active/inactive state
     const heartbeatInterval = setInterval(async () => {
       try {
-        await stream.write(`:heartbeat\n\n`);
+        const heartbeatUser = sessions.get(userId);
+        const isActive = heartbeatUser != null && heartbeatUser.appSession != null;
+        await stream.write(`data: ${JSON.stringify({
+          type: "session_heartbeat",
+          active: isActive,
+          timestamp: new Date().toISOString(),
+        })}\n\n`);
       } catch {
         clearInterval(heartbeatInterval);
       }
-    }, 30000);
+    }, 15000);
 
     // Wait for abort signal
     stream.onAbort(() => {
