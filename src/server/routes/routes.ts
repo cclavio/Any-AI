@@ -14,7 +14,7 @@ import { getHealth } from "../api/health";
 import { photoStream, transcriptionStream } from "../api/stream";
 import { speak, stopAudio } from "../api/audio";
 import { getThemePreference, setThemePreference } from "../api/storage";
-import { getLatestPhoto, getPhotoData, getPhotoBase64 } from "../api/photo";
+import { getLatestPhoto, getPhotoData, getPhotoBase64, listPhotos } from "../api/photo";
 import {
   getSettings,
   updateSettings,
@@ -79,6 +79,7 @@ api.post("/settings/google-cloud/validate", validateGoogleCloudKeyEndpoint);
 api.get("/providers/catalog", getProviderCatalog);
 
 // Photos
+api.get("/photos", listPhotos);
 api.get("/latest-photo", getLatestPhoto);
 api.get("/photo/:requestId", getPhotoData);
 api.get("/photo-base64/:requestId", getPhotoBase64);

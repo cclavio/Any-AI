@@ -29,6 +29,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.13",
+    "@supabase/supabase-js": "^2.97.0",
     "ai": "^6.0.97",
     "bun-plugin-tailwind": "^0.1.2",
     "class-variance-authority": "^0.7.1",

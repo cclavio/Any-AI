@@ -76,6 +76,22 @@ export const conversationTurns = pgTable("conversation_turns", {
  * Generic user context — ephemeral data like calendar events, notifications, etc.
  * Rows expire based on expires_at and can be cleaned up periodically.
  */
+/**
+ * Photos — metadata for photos stored in Supabase Storage.
+ * Actual image files live in the "photos" storage bucket.
+ */
+export const photos = pgTable("photos", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  requestId: text("request_id").notNull().unique(),
+  storagePath: text("storage_path").notNull(),
+  filename: text("filename").notNull(),
+  mimeType: text("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const userContext = pgTable("user_context", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull(),

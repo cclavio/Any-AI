@@ -26,6 +26,7 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Multi-provider** — Choose between OpenAI, Anthropic, or Google
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
 - **Vision** — Answers questions about what you're seeing (smart photo capture with shutter sound feedback)
+- **Photo persistence** — Photos from "take a photo" are stored in Supabase Storage with metadata in Postgres, surviving server restarts
 - **Web search** — Real-time search with concise summaries via Jina
 - **Location services** — Nearby places, directions, weather, air quality, and pollen data (optional Google Cloud API key)
 - **Battery check** — Ask "what's my battery?" for instant glasses battery level and charging status
@@ -109,7 +110,8 @@ src/
 │   │   └── tools/                    # AI SDK tool definitions (search, calculator, thinking, places, directions)
 │   ├── db/
 │   │   ├── client.ts                 # Drizzle + postgres connection
-│   │   ├── schema.ts                 # user_settings, conversations, turns, user_context
+│   │   ├── schema.ts                 # user_settings, conversations, turns, user_context, photos
+│   │   ├── storage.ts               # Supabase Storage helpers (upload/download/delete photos)
 │   │   └── vault.ts                  # Supabase Vault helpers (store/retrieve/delete)
 │   ├── manager/
 │   │   ├── CalendarManager.ts        # Calendar events from phone (in-memory + DB persistence)
@@ -134,7 +136,7 @@ src/
 Wake word OR single-press action button → Green LED flash → Start listening sound
   → User speaks query → Silence detected
     → Device command? (e.g. "take a photo", "what's my battery?", "what's my schedule?")
-      → Photo: Shutter sound → Photo saved to camera roll → Speaks "Photo saved"
+      → Photo: Shutter sound → Photo saved to camera roll + Supabase Storage → Speaks "Photo saved"
       → Battery: Reads device state → Speaks "Battery is at 73 percent"
       → Schedule: Reads calendar cache → Speaks "You have 2 upcoming events today..."
       → Follow-up mode (no AI call)
@@ -197,6 +199,8 @@ ngrok http --url=<YOUR_NGROK_URL> 3000
 | `DATABASE_URL` | Yes | Supabase Postgres connection string (pooler/transaction mode) |
 | `COOKIE_SECRET` | Yes | Secret for signing auth cookies (`openssl rand -hex 32`) |
 | `PUBLIC_URL` | Yes | Base URL for serving static assets (e.g., `http://localhost:3000`) |
+| `SUPABASE_URL` | No | Supabase project URL (enables photo storage) |
+| `SUPABASE_SERVICE_ROLE_KEY` | No | Supabase secret key for Storage uploads |
 | `JINA_API_KEY` | No | Jina API key for web search tool |
 
 AI provider API keys (OpenAI, Anthropic, Google) and the Google Cloud API key (for location services, weather, places, directions, timezone) are **not** server env vars — they are stored per-user in Supabase Vault and configured via the Settings UI.
