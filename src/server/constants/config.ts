@@ -72,6 +72,18 @@ export const AGENT_SETTINGS = {
 };
 
 /**
+ * Exchange tracking settings
+ */
+export const EXCHANGE_SETTINGS = {
+  // History window for exchange-grouped context (48 hours)
+  historyWindowMs: 48 * 60 * 60 * 1000,
+  // Tag generation limits
+  minTags: 3,
+  maxTags: 7,
+  tagMaxTokens: 100,
+};
+
+/**
  * Resolve a default sound URL from the app's public URL.
  * Glasses need an absolute URL to fetch audio files.
  * Falls back to null if PUBLIC_URL is not configured.

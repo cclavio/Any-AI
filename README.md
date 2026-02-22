@@ -22,6 +22,7 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 
 - **Voice activation** — Say "Hey Any AI" to start (customizable wake word), or single-press the action button
 - **Conversational follow-up** — After the AI responds, the mic stays open for 10 seconds so you can ask follow-up questions without repeating the wake word
+- **Conversational closers** — Say "thanks", "I'm good", or "that's all" to end an exchange instantly without triggering the AI. Gratitude closers get a quick "You're welcome!" response; dismissals return to idle silently
 - **Voice commands** — Say "take a photo", "what's my battery?", or "what's my schedule?" for instant device responses (bypasses the AI pipeline)
 - **Multi-provider** — Choose between OpenAI, Anthropic, or Google
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
@@ -32,7 +33,8 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Battery check** — Ask "what's my battery?" for instant glasses battery level and charging status
 - **Calendar aware** — Receives calendar events from your phone; ask "what's my schedule?" for an instant readout, or ask the AI questions like "when is my next meeting?"
 - **Context aware** — Knows your location, date, time, weather, calendar, and conversation history
-- **Conversation persistence** — History hydrated from DB on session start; 8-hour context window covers a full working day. Each turn records which `user_context` rows were active (`context_ids`), enabling full traceability of what the AI knew when it responded
+- **Exchange tracking** — Conversation turns are grouped into "exchanges" (wake word to done). Each exchange gets auto-generated topic tags via a lightweight LLM call. The AI's system prompt shows 48 hours of exchange-grouped history with temporal labels ("today morning", "yesterday evening") and tags, so it can distinguish "this morning's conversation about cookies" from "right now"
+- **Conversation persistence** — History hydrated from DB on session start; 48-hour exchange-grouped context window. Each turn records which `user_context` rows were active (`context_ids`) and which exchange it belongs to (`exchange_id`), enabling full traceability of what the AI knew when it responded
 - **Session resilience** — Survives network blips and idle socket timeouts with a 5-minute grace period; no "Welcome" replay on reconnect
 - **Timezone detection** — Auto-detects your timezone from GPS when the OS doesn't provide it
 - **Personalization** — Custom assistant name, wake word, and model selection per user
@@ -83,6 +85,8 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **Conversation hydration** — `ChatHistoryManager.initialize()` loads today's turns from DB on session start so prior context survives server restarts
 - **Vision error handling** — Failed photo captures return a clear user-facing error instead of sending a photoless query to the LLM
 - **TTS improvements** — Unit abbreviations (mph, km, ft, etc.) expanded before number-to-words conversion for correct speech output
+- **Exchange tracking** — Turns grouped into exchanges (wake word → done) with auto-generated topic tags via fire-and-forget LLM call. System prompt uses 48-hour exchange-grouped history with temporal labels
+- **Conversational closers** — Regex-based closer detection ("thanks", "I'm good", "bye") ends exchanges without triggering the AI pipeline, with optional spoken acknowledgment
 
 ### Supported Models
 
@@ -102,8 +106,9 @@ src/
 │   ├── MentraAI.ts                   # AppServer lifecycle (onSession/onStop) with soft disconnect
 │   ├── agent/
 │   │   ├── MentraAgent.ts            # AI SDK generateText() wrapper
+│   │   ├── conversational-closers.ts # Regex-based closer classifier (gratitude, dismissal)
 │   │   ├── device-commands.ts        # Regex-based device command classifier (photo, battery, schedule)
-│   │   ├── prompt.ts                 # Dynamic system prompt builder
+│   │   ├── prompt.ts                 # Dynamic system prompt builder (exchange-grouped history)
 │   │   ├── providers/
 │   │   │   ├── types.ts              # UserAIConfig, MODEL_CATALOG, Provider
 │   │   │   ├── registry.ts           # ProviderRegistry (resolve config → model)
@@ -111,16 +116,17 @@ src/
 │   │   └── tools/                    # AI SDK tool definitions (search, calculator, thinking, places, directions)
 │   ├── db/
 │   │   ├── client.ts                 # Drizzle + postgres connection
-│   │   ├── schema.ts                 # user_settings, conversations, turns (w/ context_ids), user_context, photos
+│   │   ├── schema.ts                 # user_settings, conversations, turns, exchanges, user_context, photos
 │   │   ├── storage.ts               # Supabase Storage helpers (upload/download/delete photos)
 │   │   └── vault.ts                  # Supabase Vault helpers (store/retrieve/delete)
 │   ├── manager/
 │   │   ├── CalendarManager.ts        # Calendar events from phone (in-memory + DB persistence)
-│   │   ├── ChatHistoryManager.ts     # Drizzle-based conversation persistence
+│   │   ├── ChatHistoryManager.ts     # Drizzle-based conversation persistence + exchange-grouped queries
 │   │   ├── DeviceCommandHandler.ts   # Hardware command executor (photo, battery, schedule)
+│   │   ├── ExchangeManager.ts       # Exchange lifecycle (start/end) + async tag generation
 │   │   ├── LocationManager.ts        # GPS, geocoding, weather, air quality, pollen, timezone
 │   │   ├── QueryProcessor.ts         # Query pipeline (transcription → agent → TTS)
-│   │   └── TranscriptionManager.ts   # Wake word, device commands, follow-up mode, audio/LED feedback
+│   │   └── TranscriptionManager.ts   # Wake word, closers, device commands, follow-up mode, exchange hooks
 │   ├── routes/routes.ts              # Hono routes + SDK auth middleware
 │   ├── api/settings.ts               # Settings + provider config handlers
 │   └── session/User.ts               # Per-user state + aiConfig from DB/Vault
@@ -134,8 +140,11 @@ src/
 ## Interaction Flow
 
 ```
-Wake word OR single-press action button → Green LED flash → Start listening sound
+Wake word OR single-press action button → Green LED flash → Start listening sound → Exchange starts
   → User speaks query → Silence detected
+    → Conversational closer? (e.g. "thanks", "I'm good", "bye")
+      → Gratitude: Speaks "You're welcome!" → Exchange ends → Idle
+      → Dismissal: Silent → Exchange ends → Idle
     → Device command? (e.g. "take a photo", "what's my battery?", "what's my schedule?")
       → Photo: Shutter sound → Photo saved to camera roll + Supabase Storage → Speaks "Photo saved"
       → Battery: Reads device state → Speaks "Battery is at 73 percent"
@@ -145,8 +154,8 @@ Wake word OR single-press action button → Green LED flash → Start listening 
       → Visual query? → Shutter sound → Photo captured for AI context
       → AI generates response → TTS speaks response
         → Follow-up mode (green LED 2s, mic open 10s)
-          → User speaks again (no wake word needed) → repeat
-          → Silence for 10s → return to idle (wake word required)
+          → User speaks again (no wake word needed) → repeat (same exchange)
+          → Silence for 10s → Exchange ends (tags generated async) → Idle
 ```
 
 ## Supported Glasses

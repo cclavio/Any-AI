@@ -7,7 +7,7 @@
 
 import { ResponseMode, WORD_LIMITS } from "../constants/config";
 import type { LocationContext } from "../manager/LocationManager";
-import type { ConversationTurn } from "../manager/ChatHistoryManager";
+import type { ConversationTurn, ExchangeGroup } from "../manager/ChatHistoryManager";
 import type { UserAIConfig } from "./providers/types";
 import { PROVIDER_DISPLAY_NAMES } from "./providers/types";
 
@@ -33,6 +33,7 @@ export interface AgentContext {
   notifications: string;
   calendar: string;
   conversationHistory: ConversationTurn[];
+  exchangeGroups?: ExchangeGroup[];
 
   // User's AI configuration
   aiConfig?: UserAIConfig;
@@ -296,8 +297,10 @@ function buildContextSection(context: AgentContext): string {
     sections.push(`**Recent Notifications:**\n${context.notifications}`);
   }
 
-  // Conversation history
-  if (context.conversationHistory.length > 0) {
+  // Conversation history — prefer exchange-grouped format when available
+  if (context.exchangeGroups && context.exchangeGroups.length > 0) {
+    sections.push(formatExchangeGroupsForPrompt(context.exchangeGroups, context.localTime, context.timezone));
+  } else if (context.conversationHistory.length > 0) {
     const historyStr = context.conversationHistory.map(turn => {
       const photoNote = turn.hadPhoto ? " (with photo)" : "";
       return `User${photoNote}: ${turn.query}\nAssistant: ${turn.response}`;
@@ -369,6 +372,87 @@ Since the user will READ your response on a small HUD display:
 - You CAN use symbols and abbreviations: 72°F, $50, 45%
 - No markdown formatting
 - Prioritize scannable, glanceable text`;
+}
+
+/**
+ * Format exchange groups for the system prompt.
+ * Current (active) exchange = full turns, no tags.
+ * Past exchanges = temporal label + tags + full turns.
+ */
+function formatExchangeGroupsForPrompt(groups: ExchangeGroup[], localTime: string, timezone?: string): string {
+  if (groups.length === 0) return "";
+
+  const now = new Date();
+  const lines: string[] = ["## Conversation History (48h)"];
+
+  for (const group of groups) {
+    const isCurrentExchange = group.endedAt === null;
+    const turns = group.turns;
+    if (turns.length === 0 && !isCurrentExchange) continue;
+
+    if (isCurrentExchange) {
+      lines.push("");
+      lines.push("**Current Exchange:**");
+    } else {
+      const label = formatTemporalLabel(group.startedAt, now, timezone);
+      const timeStr = formatTimeOfDay(group.startedAt, timezone);
+      const tagStr = group.tags.length > 0 ? ` [${group.tags.join(", ")}]` : "";
+      lines.push("");
+      lines.push(`**Exchange (${label}, ${timeStr})${tagStr}:**`);
+    }
+
+    for (const turn of turns) {
+      const photoNote = turn.hadPhoto ? " (with photo)" : "";
+      lines.push(`User${photoNote}: ${turn.query}`);
+      lines.push(`Assistant: ${turn.response}`);
+    }
+
+    if (!isCurrentExchange) {
+      lines.push("");
+      lines.push("---");
+    }
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Generate a temporal label like "today morning", "yesterday evening", "2 days ago".
+ */
+function formatTemporalLabel(timestamp: Date, now: Date, timezone?: string): string {
+  const opts: Intl.DateTimeFormatOptions = { timeZone: timezone, year: "numeric", month: "numeric", day: "numeric" };
+  const tsDate = new Date(timestamp.toLocaleDateString("en-US", opts));
+  const nowDate = new Date(now.toLocaleDateString("en-US", opts));
+  const diffDays = Math.floor((nowDate.getTime() - tsDate.getTime()) / (24 * 60 * 60 * 1000));
+
+  const hour = getHourInTimezone(timestamp, timezone);
+  const period = hour < 12 ? "morning" : hour < 17 ? "afternoon" : "evening";
+
+  if (diffDays === 0) return `today ${period}`;
+  if (diffDays === 1) return `yesterday ${period}`;
+  return `${diffDays} days ago`;
+}
+
+/**
+ * Format time of day like "9:30 AM".
+ */
+function formatTimeOfDay(timestamp: Date, timezone?: string): string {
+  const opts: Intl.DateTimeFormatOptions = {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  };
+  if (timezone) opts.timeZone = timezone;
+  return timestamp.toLocaleTimeString("en-US", opts);
+}
+
+/**
+ * Get the hour (0-23) in a specific timezone.
+ */
+function getHourInTimezone(date: Date, timezone?: string): number {
+  const opts: Intl.DateTimeFormatOptions = { hour: "numeric", hour12: false };
+  if (timezone) opts.timeZone = timezone;
+  return parseInt(date.toLocaleTimeString("en-US", opts), 10);
 }
 
 /**

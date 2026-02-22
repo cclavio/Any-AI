@@ -11,10 +11,10 @@
  */
 
 import type { User } from "../session/User";
-import { CONVERSATION_SETTINGS } from "../constants/config";
+import { CONVERSATION_SETTINGS, EXCHANGE_SETTINGS } from "../constants/config";
 import { db, isDbAvailable } from "../db/client";
-import { conversations, conversationTurns } from "../db/schema";
-import { eq, and } from "drizzle-orm";
+import { conversations, conversationTurns, exchanges } from "../db/schema";
+import { eq, and, gte, isNull, desc, asc, sql } from "drizzle-orm";
 
 /**
  * A conversation turn for context
@@ -27,6 +27,17 @@ export interface ConversationTurn {
   photoDataUrl?: string;
   photoId?: string;
   contextIds?: string[];
+}
+
+/**
+ * A group of conversation turns within an exchange (for prompt context).
+ */
+export interface ExchangeGroup {
+  exchangeId: string | null;
+  startedAt: Date;
+  endedAt: Date | null;
+  tags: string[];
+  turns: ConversationTurn[];
 }
 
 /**
@@ -59,7 +70,7 @@ export class ChatHistoryManager {
   /**
    * Add a conversation turn — writes to both memory and DB
    */
-  async addTurn(query: string, response: string, hadPhoto: boolean = false, photoDataUrl?: string, photoId?: string, contextIds?: string[]): Promise<void> {
+  async addTurn(query: string, response: string, hadPhoto: boolean = false, photoDataUrl?: string, photoId?: string, contextIds?: string[], exchangeId?: string | null): Promise<void> {
     const turn: ConversationTurn = {
       query,
       response,
@@ -100,12 +111,16 @@ export class ChatHistoryManager {
           hadPhoto,
           photoId,
           contextIds: contextIds ?? [],
+          exchangeId: exchangeId ?? null,
         });
       } catch (error) {
         console.error("Failed to persist conversation turn:", error);
         // In-memory turn was already added — don't throw
       }
     }
+
+    // Buffer turn for exchange tag generation
+    this.user.exchange.recordTurn(query, response);
   }
 
   /**
@@ -176,6 +191,109 @@ export class ChatHistoryManager {
       }));
     } catch (error) {
       console.error("Failed to fetch history by date:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Get conversation history grouped by exchange for prompt context.
+   * Returns exchanges from the past 48 hours with their turns, plus
+   * orphan turns (no exchange_id) for backward compatibility.
+   */
+  async getHistoryGroupedByExchange(): Promise<ExchangeGroup[]> {
+    if (!isDbAvailable()) return [];
+
+    const cutoff = new Date(Date.now() - EXCHANGE_SETTINGS.historyWindowMs);
+
+    try {
+      // Fetch exchanges in the window
+      const exchangeRows = await db
+        .select()
+        .from(exchanges)
+        .where(
+          and(
+            eq(exchanges.userId, this.user.userId),
+            gte(exchanges.startedAt, cutoff),
+          ),
+        )
+        .orderBy(asc(exchanges.startedAt));
+
+      // Fetch all turns in the window
+      const turnRows = await db
+        .select({
+          id: conversationTurns.id,
+          query: conversationTurns.query,
+          response: conversationTurns.response,
+          hadPhoto: conversationTurns.hadPhoto,
+          photoId: conversationTurns.photoId,
+          contextIds: conversationTurns.contextIds,
+          exchangeId: conversationTurns.exchangeId,
+          timestamp: conversationTurns.timestamp,
+        })
+        .from(conversationTurns)
+        .innerJoin(conversations, eq(conversationTurns.conversationId, conversations.id))
+        .where(
+          and(
+            eq(conversations.userId, this.user.userId),
+            gte(conversationTurns.timestamp, cutoff),
+          ),
+        )
+        .orderBy(asc(conversationTurns.timestamp));
+
+      // Group turns by exchange_id
+      const turnsByExchange = new Map<string, ConversationTurn[]>();
+      const orphanTurns: ConversationTurn[] = [];
+
+      for (const row of turnRows) {
+        const turn: ConversationTurn = {
+          query: row.query,
+          response: row.response,
+          timestamp: row.timestamp,
+          hadPhoto: row.hadPhoto,
+          photoId: row.photoId ?? undefined,
+          contextIds: row.contextIds ?? [],
+        };
+
+        if (row.exchangeId) {
+          const existing = turnsByExchange.get(row.exchangeId) ?? [];
+          existing.push(turn);
+          turnsByExchange.set(row.exchangeId, existing);
+        } else {
+          orphanTurns.push(turn);
+        }
+      }
+
+      const groups: ExchangeGroup[] = [];
+
+      // Add orphan turns as a single group (backward compat)
+      if (orphanTurns.length > 0) {
+        groups.push({
+          exchangeId: null,
+          startedAt: orphanTurns[0].timestamp,
+          endedAt: orphanTurns[orphanTurns.length - 1].timestamp,
+          tags: [],
+          turns: orphanTurns,
+        });
+      }
+
+      // Add exchange groups
+      for (const ex of exchangeRows) {
+        const turns = turnsByExchange.get(ex.id) ?? [];
+        groups.push({
+          exchangeId: ex.id,
+          startedAt: ex.startedAt,
+          endedAt: ex.endedAt,
+          tags: (ex.tags as string[]) ?? [],
+          turns,
+        });
+      }
+
+      // Sort all groups by startedAt
+      groups.sort((a, b) => a.startedAt.getTime() - b.startedAt.getTime());
+
+      return groups;
+    } catch (error) {
+      console.error("Failed to fetch exchange-grouped history:", error);
       return [];
     }
   }

@@ -70,7 +70,23 @@ export const conversationTurns = pgTable("conversation_turns", {
   hadPhoto: boolean("had_photo").notNull().default(false),
   photoId: uuid("photo_id").references(() => photos.id),
   contextIds: uuid("context_ids").array().default([]),
+  exchangeId: uuid("exchange_id").references(() => exchanges.id, { onDelete: "set null" }),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
+});
+
+/**
+ * Exchanges — groups conversation turns into exchanges (wake word -> done).
+ * An exchange starts when the user activates listening and ends on
+ * closer detection, follow-up timeout, or session disconnect.
+ */
+export const exchanges = pgTable("exchanges", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  endReason: text("end_reason"),
+  tags: text("tags").array().default([]),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 /**

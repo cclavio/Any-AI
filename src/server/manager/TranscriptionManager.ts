@@ -4,6 +4,7 @@ import type { StoredPhoto } from "./PhotoManager";
 import { detectWakeWord, removeWakeWord } from "../utils/wake-word";
 import { isVisualQuery } from "../agent/visual-classifier";
 import { classifyDeviceCommand, type DeviceCommand } from "../agent/device-commands";
+import { classifyCloser } from "../agent/conversational-closers";
 import { getDefaultSoundUrl } from "../constants/config";
 
 interface SSEWriter {
@@ -213,6 +214,11 @@ export class TranscriptionManager {
     // Play "start listening" audio cue
     this.playStartSound();
 
+    // Start a new exchange if one isn't already active (follow-ups reuse the same exchange)
+    if (!this.user.exchange.isActive()) {
+      this.user.exchange.startExchange().catch(console.error);
+    }
+
     // Photo capture deferred — will be taken only if isVisualQuery() says yes
     this.pendingPhoto = null;
 
@@ -262,6 +268,19 @@ export class TranscriptionManager {
     const silenceDetectedAt = Date.now();
     const timeSinceWake = silenceDetectedAt - this.transcriptionStartTime;
     console.log(`⏱️ [SILENCE] Query ready: "${query}" (${timeSinceWake}ms since wake word)`);
+
+    // Check for conversational closers — end exchange without AI call
+    const closer = classifyCloser(query);
+    if (closer) {
+      console.log(`👋 Conversational closer detected: ${closer.type} for "${query}"`);
+      if (closer.type === "gratitude") {
+        this.user.appSession?.audio.speak("You're welcome!").catch(() => {});
+      }
+      const reason = closer.type === "gratitude" ? "closer_gratitude" : "closer_dismissal";
+      await this.user.exchange.endExchange(reason);
+      this.resetState();
+      return;
+    }
 
     // Check for device commands (e.g. "take a photo") — short-circuit AI pipeline
     const deviceCmd = classifyDeviceCommand(query);
@@ -354,10 +373,11 @@ export class TranscriptionManager {
       });
     }
 
-    // Follow-up window — if no speech in 5s, return to IDLE
+    // Follow-up window — if no speech in 5s, return to IDLE and end exchange
     this.followUpTimeout = setTimeout(() => {
       if (this.isFollowUpMode && !this.isProcessing) {
         console.log(`⏰ Follow-up window expired for ${this.user.userId}, returning to IDLE`);
+        this.user.exchange.endExchange("follow_up_timeout").catch(console.error);
         this.resetState();
       }
     }, this.FOLLOW_UP_WINDOW_MS);

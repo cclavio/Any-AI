@@ -233,6 +233,12 @@ export class MentraAI extends AppServer {
     });
 
     try {
+      // End any active exchange before disconnecting
+      const user = sessions.get(userId);
+      if (user?.exchange.isActive()) {
+        await user.exchange.endExchange("session_disconnect");
+      }
+
       // Clear the glasses connection but keep the User alive for reconnect
       sessions.softDisconnect(userId);
     } catch (err) {

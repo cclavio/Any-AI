@@ -14,7 +14,7 @@ import { resolveLLMModel } from "./providers/registry";
 import type { UserAIConfig } from "./providers/types";
 import { DEFAULT_AI_CONFIG, getModelDisplayName } from "./providers/types";
 import type { LocationContext } from "../manager/LocationManager";
-import type { ConversationTurn } from "../manager/ChatHistoryManager";
+import type { ConversationTurn, ExchangeGroup } from "../manager/ChatHistoryManager";
 
 // Re-export for consumers
 export type { UserAIConfig } from "./providers/types";
@@ -47,6 +47,7 @@ export interface GenerateOptions {
     notifications: string;
     calendar: string;
     conversationHistory: ConversationTurn[];
+    exchangeGroups?: ExchangeGroup[];
   };
   aiConfig?: UserAIConfig;
   onToolCall?: (toolName: string) => void;
@@ -115,6 +116,7 @@ export async function generateResponse(options: GenerateOptions): Promise<Genera
     notifications: context.notifications,
     calendar: context.calendar,
     conversationHistory: context.conversationHistory,
+    exchangeGroups: context.exchangeGroups,
     aiConfig: config,
     googleCloudConfigured: !!config.googleCloudApiKey,
   };

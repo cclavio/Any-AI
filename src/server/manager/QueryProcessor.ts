@@ -161,6 +161,10 @@ export class QueryProcessor {
 
     // Step 4: Build agent context (using snapshotted capabilities from pipeline start)
     const hasPhotos = photoDataUrl !== undefined; // current query's photo, not stale ones
+
+    // Load exchange-grouped history for prompt context
+    const exchangeGroups = await this.user.chatHistory.getHistoryGroupedByExchange();
+
     const context: GenerateOptions["context"] = {
       hasDisplay,
       hasSpeakers,
@@ -173,6 +177,7 @@ export class QueryProcessor {
       notifications: this.user.notifications.formatForPrompt(),
       calendar: this.user.calendar.formatForPrompt(),
       conversationHistory: this.user.chatHistory.getRecentTurns(),
+      exchangeGroups,
     };
     lap('BUILD-CONTEXT');
 
@@ -231,10 +236,11 @@ export class QueryProcessor {
       });
     }
 
-    // Step 8: Save to chat history (with active context IDs for traceability)
+    // Step 8: Save to chat history (with active context IDs and exchange ID for traceability)
     const hadPhoto = photoBuffers.length > 0;
     const contextIds = this.user.calendar.getActiveContextIds();
-    await this.user.chatHistory.addTurn(query, response, hadPhoto, photoDataUrl, photoId, contextIds);
+    const exchangeId = this.user.exchange.getCurrentExchangeId();
+    await this.user.chatHistory.addTurn(query, response, hadPhoto, photoDataUrl, photoId, contextIds, exchangeId);
     lap('SAVE-HISTORY');
 
     console.log(`⏱️ [PIPELINE-DONE] Total: ${Date.now() - pipelineStart}ms`);

@@ -10,6 +10,7 @@ import { CalendarManager } from "../manager/CalendarManager";
 import { ChatHistoryManager } from "../manager/ChatHistoryManager";
 import { QueryProcessor } from "../manager/QueryProcessor";
 import { DeviceCommandHandler } from "../manager/DeviceCommandHandler";
+import { ExchangeManager } from "../manager/ExchangeManager";
 import type { UserAIConfig } from "../agent/providers/types";
 import { DEFAULT_AI_CONFIG, getModelDisplayName } from "../agent/providers/types";
 import { db, isDbAvailable } from "../db/client";
@@ -78,6 +79,9 @@ export class User {
   /** Hardware device command executor (photo capture, etc.) */
   deviceCommand: DeviceCommandHandler;
 
+  /** Exchange tracking (groups turns into conversational exchanges) */
+  exchange: ExchangeManager;
+
   constructor(public readonly userId: string) {
     this.photo = new PhotoManager(this);
     this.transcription = new TranscriptionManager(this);
@@ -90,6 +94,7 @@ export class User {
     this.chatHistory = new ChatHistoryManager(this);
     this.queryProcessor = new QueryProcessor(this);
     this.deviceCommand = new DeviceCommandHandler(this);
+    this.exchange = new ExchangeManager(this);
   }
 
   /**
@@ -196,6 +201,7 @@ export class User {
     this.notifications.destroy();
     this.calendar.destroy();
     this.chatHistory.destroy();
+    this.exchange.destroy().catch(() => {});
     this.appSession = null;
     console.log(`🗑️ User ${this.userId} cleaned up`);
   }
