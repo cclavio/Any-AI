@@ -33,7 +33,9 @@ export async function storeApiKey(
     SELECT vault.create_secret(${apiKey}, ${name}) as id
   `);
 
-  return (result as any).rows[0].id as string;
+  // postgres.js driver returns rows directly as an array
+  const rows = (result as any).rows ?? result;
+  return rows[0].id as string;
 }
 
 /**
@@ -49,7 +51,9 @@ export async function getApiKey(secretId: string): Promise<string | null> {
     WHERE id = ${secretId}::uuid
   `);
 
-  return ((result as any).rows[0]?.decrypted_secret as string) ?? null;
+  // postgres.js driver returns rows directly as an array
+  const rows = (result as any).rows ?? result;
+  return (rows[0]?.decrypted_secret as string) ?? null;
 }
 
 /**
