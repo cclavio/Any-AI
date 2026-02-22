@@ -162,7 +162,7 @@ export class MentraAI extends AppServer {
     }, 10000);
 
     // Play welcome message (with delay for camera-only glasses)
-    this.playWelcome(session, sessionId);
+    this.playWelcome(session, user);
 
     // Notify frontend that glasses session is active
     const hasDisplay = session.capabilities?.hasDisplay ?? false;
@@ -202,24 +202,24 @@ export class MentraAI extends AppServer {
   /**
    * Play the welcome sound/message
    */
-  private playWelcome(session: AppSession, sessionId: string): void {
+  private playWelcome(session: AppSession, user: User): void {
     const hasDisplay = session.capabilities?.hasDisplay ?? false;
+    const agentName = user.aiConfig?.agentName ?? "Any AI";
+    const wakeWord = user.aiConfig?.wakeWord ?? "Hey Any AI";
 
     if (hasDisplay) {
       // HUD glasses: show text
       session.layouts.showTextWall(
-        "Any AI\n\nWelcome to Any AI.\nSay \"Hey Any AI\" followed by your question.",
+        `${agentName}\n\nWelcome to ${agentName}.\nSay "${wakeWord}" followed by your question.`,
         { durationMs: 3000 }
       );
     } else {
-      // Camera-only glasses: play welcome audio after delay
-      if (WELCOME_SOUND_URL) {
-        setTimeout(() => {
-          session.audio.playAudio({ audioUrl: WELCOME_SOUND_URL }).catch((err) => {
-            console.debug("Welcome audio failed:", err);
-          });
-        }, 1000);
-      }
+      // Camera-only glasses: speak welcome message after short delay
+      setTimeout(() => {
+        session.audio.speak(`Welcome to ${agentName}`).catch((err) => {
+          console.debug("Welcome speech failed:", err);
+        });
+      }, 1000);
     }
   }
 
