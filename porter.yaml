@@ -1,4 +1,4 @@
-version: v2
+version: v1
 # Omit a hard-coded name here. Use environment variables to supply dynamic values.
 namespace: ${PORTER_NAMESPACE}
 build:
@@ -6,7 +6,7 @@ build:
   context: .
   dockerfile: ./docker/Dockerfile
 services:
-  - name: mentra-ai-2
+  - name: any-ai
     type: web
     run: bun run start
     port: 80

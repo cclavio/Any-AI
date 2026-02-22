@@ -1,6 +1,16 @@
-# Mentra AI - Architecture & Implementation Plan
+# ⚠️ DEPRECATED — Do NOT use this plan for Any AI development
 
-> **Status:** Implementation Complete
+> **This file documents the original Mentra AI 2 implementation (completed).**
+> **For the current Any AI architecture and implementation plan, see [`ANY_AI_PLAN.md`](./ANY_AI_PLAN.md).**
+>
+> This file is kept as a reference for understanding the original codebase that Any AI was forked from.
+> Do not modify code based on this file — all new work follows `ANY_AI_PLAN.md`.
+
+---
+
+# Mentra AI - Architecture & Implementation Plan (ORIGINAL — Read Only)
+
+> **Status:** Implementation Complete (Superseded by ANY_AI_PLAN.md)
 > **Base:** New-Mentra-AI (Camera Example App)
 > **SDK Version:** `@mentra/sdk` 3.0.0-hono.4
 > **Date:** February 2026

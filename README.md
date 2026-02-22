@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="https://imagedelivery.net/nrc8B2Lk8UIoyW7fY8uHVg/97f4b31b-f239-444d-4cc4-82ee94f5be00/square" alt="Mentra AI" width="120" height="120" />
+  <img src="https://mentra-store-cdn.mentraglass.com/mini_app_assets/com.clavionlabs.anyai/1771708239272-any-ai-logo-1.png" alt="Any AI Logo" width="120" height="120" />
 </p>
 
-<h1 align="center">Mentra AI</h1>
+<h1 align="center">Any AI</h1>
 
 <p align="center">
-  <strong>Voice-first AI assistant for smart glasses</strong>
+  <strong>A clone of the Mentra AI app that allows you to add your own API key for OpenAl or Claude so you can choose your own model. A Voice-first AI assistant for smart glasses</strong>
 </p>
 
 <p align="center">
@@ -17,7 +17,7 @@
 
 ## What It Does
 
-Mentra AI is an intelligent voice assistant for smart glasses. It adapts to your hardware—whether your glasses have a HUD display, camera, or speakers—and delivers responses in the most appropriate format.
+Any AI is an intelligent voice assistant for smart glasses. It adapts to your hardware—whether your glasses have a HUD display, camera, or speakers—and delivers responses in the most appropriate format.
 
 - **Voice activation** — Say "Hey Mentra" to start
 - **Vision** — Answers questions about what you're seeing (camera glasses)
