@@ -156,6 +156,7 @@ export class QueryProcessor {
       localTime,
       timezone: this.user.location.getTimezone() ?? undefined,
       notifications: this.user.notifications.formatForPrompt(),
+      calendar: this.user.calendar.formatForPrompt(),
       conversationHistory: this.user.chatHistory.getRecentTurns(),
     };
     lap('BUILD-CONTEXT');

@@ -45,6 +45,7 @@ export interface GenerateOptions {
     localTime: string;
     timezone?: string;
     notifications: string;
+    calendar: string;
     conversationHistory: ConversationTurn[];
   };
   aiConfig?: UserAIConfig;
@@ -112,6 +113,7 @@ export async function generateResponse(options: GenerateOptions): Promise<Genera
     localTime: context.localTime,
     timezone: context.timezone,
     notifications: context.notifications,
+    calendar: context.calendar,
     conversationHistory: context.conversationHistory,
     aiConfig: config,
     googleCloudConfigured: !!config.googleCloudApiKey,

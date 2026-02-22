@@ -6,6 +6,7 @@ import { StorageManager } from "../manager/StorageManager";
 import { InputManager } from "../manager/InputManager";
 import { LocationManager } from "../manager/LocationManager";
 import { NotificationManager } from "../manager/NotificationManager";
+import { CalendarManager } from "../manager/CalendarManager";
 import { ChatHistoryManager } from "../manager/ChatHistoryManager";
 import { QueryProcessor } from "../manager/QueryProcessor";
 import { DeviceCommandHandler } from "../manager/DeviceCommandHandler";
@@ -65,6 +66,9 @@ export class User {
   /** Phone notifications for context */
   notifications: NotificationManager;
 
+  /** Calendar events from phone */
+  calendar: CalendarManager;
+
   /** Conversation history storage */
   chatHistory: ChatHistoryManager;
 
@@ -82,6 +86,7 @@ export class User {
     this.input = new InputManager(this);
     this.location = new LocationManager(this);
     this.notifications = new NotificationManager(this);
+    this.calendar = new CalendarManager(this);
     this.chatHistory = new ChatHistoryManager(this);
     this.queryProcessor = new QueryProcessor(this);
     this.deviceCommand = new DeviceCommandHandler(this);
@@ -92,6 +97,7 @@ export class User {
    */
   async initialize(): Promise<void> {
     await this.chatHistory.initialize();
+    await this.calendar.initialize();
 
     // Load AI config from Supabase if available
     if (isDbAvailable()) {
@@ -188,6 +194,7 @@ export class User {
     this.photo.destroy();
     this.location.destroy();
     this.notifications.destroy();
+    this.calendar.destroy();
     this.chatHistory.destroy();
     this.appSession = null;
     console.log(`🗑️ User ${this.userId} cleaned up`);

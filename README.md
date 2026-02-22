@@ -22,14 +22,15 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 
 - **Voice activation** — Say "Hey Any AI" to start (customizable wake word), or single-press the action button
 - **Conversational follow-up** — After the AI responds, the mic stays open for 10 seconds so you can ask follow-up questions without repeating the wake word
-- **Voice commands** — Say "take a photo" or "what's my battery?" for instant device responses (bypasses the AI pipeline)
+- **Voice commands** — Say "take a photo", "what's my battery?", or "what's my schedule?" for instant device responses (bypasses the AI pipeline)
 - **Multi-provider** — Choose between OpenAI, Anthropic, or Google
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
 - **Vision** — Answers questions about what you're seeing (smart photo capture with shutter sound feedback)
 - **Web search** — Real-time search with concise summaries via Jina
 - **Location services** — Nearby places, directions, weather, air quality, and pollen data (optional Google Cloud API key)
 - **Battery check** — Ask "what's my battery?" for instant glasses battery level and charging status
-- **Context aware** — Knows your location, date, time, weather, and conversation history
+- **Calendar aware** — Receives calendar events from your phone; ask "what's my schedule?" for an instant readout, or ask the AI questions like "when is my next meeting?"
+- **Context aware** — Knows your location, date, time, weather, calendar, and conversation history
 - **Conversation persistence** — History hydrated from DB on session start; 8-hour context window covers a full working day
 - **Session resilience** — Survives network blips and idle socket timeouts with a 5-minute grace period; no "Welcome" replay on reconnect
 - **Timezone detection** — Auto-detects your timezone from GPS when the OS doesn't provide it
@@ -68,6 +69,7 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **Smart photo capture** — `isVisualQuery()` classifier determines if camera photo is needed before taking one
 - **Voice-activated photo capture** — "Take a photo" voice command saves directly to camera roll via device command classifier, bypassing the AI pipeline
 - **Battery voice command** — "What's my battery?" reads glasses battery level and charging status instantly via device state API
+- **Calendar integration** — `CalendarManager` receives events via `onCalendarEvent`, persists to generic `user_context` table, hydrates on reconnect, and injects schedule into AI context
 - **Dynamic date context** — LLM receives the current date and time (not just time), so date-related questions are always accurate
 - **Enhanced capabilities prompt** — "What can you do?" returns a comprehensive feature list tailored to the connected hardware
 - **Single-press listener** — Action button changed from double-press to single press for faster activation
@@ -98,7 +100,7 @@ src/
 │   ├── MentraAI.ts                   # AppServer lifecycle (onSession/onStop) with soft disconnect
 │   ├── agent/
 │   │   ├── MentraAgent.ts            # AI SDK generateText() wrapper
-│   │   ├── device-commands.ts        # Regex-based device command classifier (photo, battery, etc.)
+│   │   ├── device-commands.ts        # Regex-based device command classifier (photo, battery, schedule)
 │   │   ├── prompt.ts                 # Dynamic system prompt builder
 │   │   ├── providers/
 │   │   │   ├── types.ts              # UserAIConfig, MODEL_CATALOG, Provider
@@ -107,11 +109,12 @@ src/
 │   │   └── tools/                    # AI SDK tool definitions (search, calculator, thinking, places, directions)
 │   ├── db/
 │   │   ├── client.ts                 # Drizzle + postgres connection
-│   │   ├── schema.ts                 # user_settings, conversations, turns
+│   │   ├── schema.ts                 # user_settings, conversations, turns, user_context
 │   │   └── vault.ts                  # Supabase Vault helpers (store/retrieve/delete)
 │   ├── manager/
+│   │   ├── CalendarManager.ts        # Calendar events from phone (in-memory + DB persistence)
 │   │   ├── ChatHistoryManager.ts     # Drizzle-based conversation persistence
-│   │   ├── DeviceCommandHandler.ts   # Hardware command executor (photo capture, battery check)
+│   │   ├── DeviceCommandHandler.ts   # Hardware command executor (photo, battery, schedule)
 │   │   ├── LocationManager.ts        # GPS, geocoding, weather, air quality, pollen, timezone
 │   │   ├── QueryProcessor.ts         # Query pipeline (transcription → agent → TTS)
 │   │   └── TranscriptionManager.ts   # Wake word, device commands, follow-up mode, audio/LED feedback
@@ -130,9 +133,10 @@ src/
 ```
 Wake word OR single-press action button → Green LED flash → Start listening sound
   → User speaks query → Silence detected
-    → Device command? (e.g. "take a photo", "what's my battery?")
+    → Device command? (e.g. "take a photo", "what's my battery?", "what's my schedule?")
       → Photo: Shutter sound → Photo saved to camera roll → Speaks "Photo saved"
       → Battery: Reads device state → Speaks "Battery is at 73 percent"
+      → Schedule: Reads calendar cache → Speaks "You have 2 upcoming events today..."
       → Follow-up mode (no AI call)
     → Normal query? → Processing sound loops
       → Visual query? → Shutter sound → Photo captured for AI context

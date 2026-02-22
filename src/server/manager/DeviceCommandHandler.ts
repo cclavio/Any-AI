@@ -18,6 +18,8 @@ export class DeviceCommandHandler {
         return this.takePhoto();
       case "check_battery":
         return this.checkBattery();
+      case "check_schedule":
+        return this.checkSchedule();
     }
   }
 
@@ -57,6 +59,13 @@ export class DeviceCommandHandler {
       console.error(`📸 [DEVICE-CMD] Photo capture failed for ${this.user.userId}:`, error);
       return "Photo capture failed";
     }
+  }
+
+  /**
+   * Read today's calendar schedule from in-memory cache (no LLM call).
+   */
+  private checkSchedule(): string {
+    return this.user.calendar.formatScheduleReadout();
   }
 
   /**

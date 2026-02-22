@@ -68,6 +68,10 @@ export class MentraAI extends AppServer {
         }
       });
 
+      session.events.onCalendarEvent((event) => {
+        existingUser.calendar.addEvent(event);
+      });
+
       const userTimezone = session.settings.getMentraOS<string>('userTimezone');
       if (userTimezone) {
         existingUser.location.setTimezone(userTimezone);
@@ -129,6 +133,11 @@ export class MentraAI extends AppServer {
       } else if (notifications) {
         user.notifications.addNotification(notifications);
       }
+    });
+
+    // Wire up calendar events
+    session.events.onCalendarEvent((event) => {
+      user.calendar.addEvent(event);
     });
 
     // Wire up timezone from SDK settings

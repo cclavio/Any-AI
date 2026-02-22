@@ -31,6 +31,7 @@ export interface AgentContext {
   localTime: string;
   timezone?: string;
   notifications: string;
+  calendar: string;
   conversationHistory: ConversationTurn[];
 
   // User's AI configuration
@@ -163,6 +164,7 @@ IMPORTANT: When the user asks "what can you do?" or "what can I do with these gl
 **Voice commands (handled instantly, no AI delay):**
 - "Take a photo" / "take a picture" — saves to camera roll
 - "Battery" / "what's my power" — reads battery percentage
+- "What's my schedule?" / "check my calendar" — reads today's events
 
 NEVER suggest features that require hardware the user doesn't have.`;
 }
@@ -282,6 +284,11 @@ function buildContextSection(context: AgentContext): string {
   // Date and time
   if (context.localTime) {
     sections.push(`**Current Date & Time:** ${context.localTime}${context.timezone ? ` (${context.timezone})` : ''}`);
+  }
+
+  // Calendar / Schedule
+  if (context.calendar && context.calendar.length > 0) {
+    sections.push(`**Today's Schedule:**\n${context.calendar}`);
   }
 
   // Notifications

@@ -9,7 +9,7 @@
  * API keys are NOT stored here — only Vault secret IDs (UUIDs).
  */
 
-import { pgTable, text, timestamp, boolean, integer, uuid, date } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, integer, uuid, date, jsonb } from "drizzle-orm/pg-core";
 
 /**
  * User settings — extended with AI provider configuration.
@@ -70,4 +70,19 @@ export const conversationTurns = pgTable("conversation_turns", {
   hadPhoto: boolean("had_photo").notNull().default(false),
   photoTimestamp: integer("photo_timestamp"),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
+});
+
+/**
+ * Generic user context — ephemeral data like calendar events, notifications, etc.
+ * Rows expire based on expires_at and can be cleaned up periodically.
+ */
+export const userContext = pgTable("user_context", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  contextType: text("context_type").notNull(),
+  contextKey: text("context_key").notNull(),
+  data: jsonb("data").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

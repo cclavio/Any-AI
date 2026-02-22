@@ -23,6 +23,7 @@ function makeContext(overrides: Partial<AgentContext> = {}): AgentContext {
     location: null,
     localTime: "3:00 PM",
     notifications: "No recent notifications.",
+    calendar: "",
     conversationHistory: [],
     googleCloudConfigured: false,
     ...overrides,
