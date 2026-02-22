@@ -1,5 +1,5 @@
 /**
- * System Prompt Builder for Mentra AI
+ * System Prompt Builder for Any AI
  *
  * Builds the system prompt dynamically based on context.
  * Includes device capabilities, response modes, and formatting rules.
@@ -8,6 +8,14 @@
 import { ResponseMode, WORD_LIMITS } from "../constants/config";
 import type { LocationContext } from "../manager/LocationManager";
 import type { ConversationTurn } from "../manager/ChatHistoryManager";
+import type { UserAIConfig } from "./MentraAgent";
+
+/** Display names for providers */
+const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+  openai: "OpenAI",
+  anthropic: "Anthropic",
+  google: "Google",
+};
 
 /**
  * Context passed to the prompt builder
@@ -30,20 +38,17 @@ export interface AgentContext {
   timezone?: string;
   notifications: string;
   conversationHistory: ConversationTurn[];
-}
 
-/**
- * LLM model and provider info
- */
-const LLM_MODEL = process.env.LLM_MODEL || "gemini-2.5-flash";
-const LLM_PROVIDER = process.env.LLM_PROVIDER || "Google";
+  // User's AI configuration
+  aiConfig?: UserAIConfig;
+}
 
 /**
  * Build the complete system prompt
  */
 export function buildSystemPrompt(context: AgentContext): string {
   const sections = [
-    buildIdentitySection(),
+    buildIdentitySection(context.aiConfig),
     buildDeviceCapabilitiesSection(context),
     buildResponseFormatSection(context),
     buildToolUsageSection(),
@@ -73,14 +78,18 @@ export function buildSystemPrompt(context: AgentContext): string {
 }
 
 /**
- * Core identity section
+ * Core identity section — dynamic based on user's AI config
  */
-function buildIdentitySection(): string {
-  return `# Mentra AI
+function buildIdentitySection(config?: UserAIConfig): string {
+  const agentName = config?.agentName || "Any AI";
+  const modelName = config?.llmModelName || "Gemini 2.5 Flash";
+  const providerName = PROVIDER_DISPLAY_NAMES[config?.llmProvider || "google"] || "Google";
 
-I'm Mentra AI - I live in these smart glasses and I'm here to help.
+  return `# ${agentName}
 
-My underlying AI model is ${LLM_MODEL} (provided by ${LLM_PROVIDER}). If anyone asks what model or AI powers me, I share this openly.
+I'm ${agentName} - I live in these smart glasses and I'm here to help.
+
+My underlying AI model is ${modelName} (provided by ${providerName}). If anyone asks what model or AI powers me, I share this openly.
 
 If someone asks about the glasses themselves, I mention that these are MentraOS smart glasses.
 

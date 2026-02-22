@@ -30,7 +30,7 @@ function BottomHeader({ isVisible }: BottomHeaderProps) {
           >
             <img src={WhiteMiraLogo} alt="Mentra Logo" className="w-[32px] h-[32px]" />
             <div className="text-[16px] font-semibold mt-[4px] text-white mb-[15px]">
-              start with "Hey Mentra"
+              start with "Hey Any AI"
             </div>
           </h2>
         </motion.div>

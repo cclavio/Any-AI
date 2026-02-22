@@ -5,26 +5,19 @@
  * Uses expr-eval which is lightweight and doesn't use eval().
  */
 
-import { createTool } from "@mastra/core/tools";
+import { tool } from "ai";
 import { z } from "zod";
 import { Parser } from "expr-eval";
 
 // Create a parser instance
 const parser = new Parser();
 
-export const calculatorTool = createTool({
-  id: "calculator",
+export const calculatorTool = tool({
   description: "Perform mathematical calculations. Use for arithmetic, conversions, percentages, tip calculations, etc.",
   inputSchema: z.object({
     expression: z.string().describe("Mathematical expression to evaluate (e.g., '15 * 0.2', '100 / 4', 'sqrt(16)')"),
   }),
-  outputSchema: z.object({
-    result: z.number().describe("Calculation result"),
-    error: z.string().optional().describe("Error message if calculation failed"),
-  }),
-  execute: async (input) => {
-    const { expression } = input;
-
+  execute: async ({ expression }) => {
     console.log(`🧮 Calculating: "${expression}"`);
 
     try {

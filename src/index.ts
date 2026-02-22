@@ -1,5 +1,5 @@
 /**
- * Mentra AI - Fullstack Entry Point
+ * Any AI - Fullstack Entry Point
  *
  * Uses Bun.serve() with HTML imports for the frontend
  * and Hono-based AppServer for the backend + MentraOS SDK.
@@ -27,7 +27,7 @@ if (!API_KEY) {
   process.exit(1);
 }
 
-console.log("🤖 Starting Mentra AI\n");
+console.log("🤖 Starting Any AI\n");
 console.log(`   Package: ${PACKAGE_NAME}`);
 console.log(`   Port: ${PORT}`);
 console.log("");
@@ -57,7 +57,7 @@ app.route("/api", api);
 // Start the SDK app (registers SDK routes, checks version)
 await app.start();
 
-console.log(`✅ Mentra AI running at http://localhost:${PORT}`);
+console.log(`✅ Any AI running at http://localhost:${PORT}`);
 console.log(`   • Webview: http://localhost:${PORT}`);
 console.log(`   • API: http://localhost:${PORT}/api/health`);
 console.log("");
@@ -104,7 +104,7 @@ console.log("");
 
 // Graceful shutdown
 const shutdown = async () => {
-  console.log("\n🛑 Shutting down Camera App...");
+  console.log("\n🛑 Shutting down Any AI...");
   await app.stop();
   console.log("👋 Goodbye!");
   process.exit(0);

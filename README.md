@@ -5,11 +5,12 @@
 <h1 align="center">Any AI</h1>
 
 <p align="center">
-  <strong>A clone of the Mentra AI app that allows you to add your own API key for OpenAl or Claude so you can choose your own model. A Voice-first AI assistant for smart glasses</strong>
+  <strong>A multi-provider, bring-your-own-key AI assistant for MentraOS smart glasses</strong>
 </p>
 
 <p align="center">
-  Say "Hey Mentra", ask a question, and get a concise spoken or displayed response.<br/>
+  Choose your AI provider (OpenAI, Anthropic, or Google), add your API key, and pick your model.<br/>
+  Say "Hey Any AI", ask a question, and get a concise spoken or displayed response.<br/>
   See what you see. Search the web. Remember context.
 </p>
 
@@ -19,7 +20,9 @@
 
 Any AI is an intelligent voice assistant for smart glasses. It adapts to your hardware—whether your glasses have a HUD display, camera, or speakers—and delivers responses in the most appropriate format.
 
-- **Voice activation** — Say "Hey Mentra" to start
+- **Voice activation** — Say "Hey Any AI" to start (customizable wake word)
+- **Multi-provider** — Choose between OpenAI, Anthropic, or Google
+- **Bring your own key** — Use your own API keys, stored securely
 - **Vision** — Answers questions about what you're seeing (camera glasses)
 - **Web search** — Real-time search with concise summaries
 - **Context aware** — Knows your location, time, weather, and conversation history
@@ -43,7 +46,7 @@ Any AI is an intelligent voice assistant for smart glasses. It adapts to your ha
 
 1. Go to [console.mentra.glass](https://console.mentra.glass/)
 2. Sign in and click "Create App"
-3. Set a unique package name (e.g., `com.yourName.mentraAI`)
+3. Set a unique package name (e.g., `com.yourName.anyAI`)
 4. Enter your ngrok URL as "Public URL"
 5. Add **microphone** and **camera** permissions
 
@@ -51,14 +54,14 @@ Any AI is an intelligent voice assistant for smart glasses. It adapts to your ha
 
 ```bash
 # Install
-git clone https://github.com/Mentra-Community/Mentra-AI.git
-cd Mentra-AI
+git clone https://github.com/mentra-anyai/Any-AI.git
+cd Any-AI
 bun install
 cp .env.example .env
 
 # Configure .env with your credentials
 # PORT, PACKAGE_NAME, MENTRAOS_API_KEY (required)
-# GOOGLE_GENERATIVE_AI_API_KEY, GOOGLE_MAPS_API_KEY (optional)
+# GOOGLE_MAPS_API_KEY (optional, for location features)
 
 # Start
 bun run dev
@@ -71,7 +74,7 @@ ngrok http --url=<YOUR_NGROK_URL> 3000
 
 - [MentraOS Docs](https://docs.mentra.glass)
 - [Developer Console](https://console.mentra.glass)
-- [Architecture Details](./ARCHITECTURE_PLAN.md)
+- [Architecture Plan](./ANY_AI_PLAN.md)
 
 ## License
 

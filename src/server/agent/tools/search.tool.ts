@@ -5,7 +5,7 @@
  * Uses "no-content" mode for fast SERP snippets instead of full page content.
  */
 
-import { createTool } from "@mastra/core/tools";
+import { tool } from "ai";
 import { z } from "zod";
 
 const JINA_API_KEY = process.env.JINA_API_KEY;
@@ -20,18 +20,12 @@ interface JinaSearchResponse {
   data: JinaSearchResult[];
 }
 
-export const searchTool = createTool({
-  id: "web-search",
+export const searchTool = tool({
   description: "Search the web for current information. Use for real-time data like weather, news, sports scores, business hours, or topics you're unsure about. You may ONLY call this tool ONCE per user query.",
   inputSchema: z.object({
     query: z.string().describe("The search query"),
   }),
-  outputSchema: z.object({
-    results: z.string().describe("Search results summary"),
-  }),
-  execute: async (input) => {
-    const { query } = input;
-
+  execute: async ({ query }) => {
     if (!JINA_API_KEY) {
       console.warn("⚠️ JINA_API_KEY not configured");
       return { results: "Web search is not available." };

@@ -1,14 +1,15 @@
 /**
- * Wake Word Detection for Mentra AI
+ * Wake Word Detection for Any AI
  *
- * Detects "Hey Mentra" wake word activation in transcription text.
+ * Detects wake word activation in transcription text.
+ * The wake word is configurable per-user (default: "hey any ai").
  */
 
 /**
- * Wake words that trigger Mentra AI activation
+ * Default wake words for Any AI activation
  */
-export const WAKE_WORDS = [
-  "hey mentra",
+export const DEFAULT_WAKE_WORDS = [
+  "hey any ai",
 ];
 
 /**
@@ -80,13 +81,17 @@ export interface WakeWordResult {
 /**
  * Detect if the text contains a wake word
  * @param text - The transcription text to check
+ * @param customWakeWords - Optional custom wake words (from user settings)
  * @returns Detection result with the query text
  */
-export function detectWakeWord(text: string): WakeWordResult {
+export function detectWakeWord(text: string, customWakeWords?: string[]): WakeWordResult {
   const lowerText = text.toLowerCase().trim();
+  const wakeWords = customWakeWords && customWakeWords.length > 0
+    ? customWakeWords
+    : DEFAULT_WAKE_WORDS;
 
-  for (const wakeWord of WAKE_WORDS) {
-    const index = lowerText.indexOf(wakeWord);
+  for (const wakeWord of wakeWords) {
+    const index = lowerText.indexOf(wakeWord.toLowerCase());
     if (index !== -1) {
       // Extract everything after the wake word, stripping leading punctuation
       let query = text.slice(index + wakeWord.length).trim();
@@ -109,10 +114,11 @@ export function detectWakeWord(text: string): WakeWordResult {
 /**
  * Remove wake word from text (if present)
  * @param text - The transcription text
+ * @param customWakeWords - Optional custom wake words (from user settings)
  * @returns Text with wake word removed
  */
-export function removeWakeWord(text: string): string {
-  const result = detectWakeWord(text);
+export function removeWakeWord(text: string, customWakeWords?: string[]): string {
+  const result = detectWakeWord(text, customWakeWords);
   return result.query;
 }
 

@@ -1,5 +1,5 @@
 /**
- * MentraAI — Main MentraOS AppServer for the AI assistant.
+ * MentraAI — Main MentraOS AppServer for the Any AI assistant.
  *
  * Handles the glasses lifecycle (onSession/onStop) and wires up
  * all the managers, event listeners, and query processing.
@@ -8,7 +8,6 @@
 import { AppServer, AppSession } from "@mentra/sdk";
 import { sessions } from "./manager/SessionManager";
 import { broadcastChatEvent } from "./api/chat";
-import { connectDB } from "./db/connection";
 
 const WELCOME_SOUND_URL = process.env.WELCOME_SOUND_URL;
 
@@ -37,9 +36,61 @@ export class MentraAI extends AppServer {
     sessionId: string,
     userId: string,
   ): Promise<void> {
-    console.log(`🚀 Mentra AI session started for ${userId} | model: ${session.capabilities?.modelName ?? 'unknown (capabilities not yet loaded)'} | hasCamera: ${session.capabilities?.hasCamera} | hasDisplay: ${session.capabilities?.hasDisplay} | hasSpeaker: ${session.capabilities?.hasSpeaker}`);
+    console.log(`🚀 Any AI session started for ${userId} | model: ${session.capabilities?.modelName ?? 'unknown (capabilities not yet loaded)'} | hasCamera: ${session.capabilities?.hasCamera} | hasDisplay: ${session.capabilities?.hasDisplay} | hasSpeaker: ${session.capabilities?.hasSpeaker}`);
 
-    // Get or create user
+    // ★ Reconnect detection — check if user already has an active session
+    const existingUser = sessions.get(userId);
+    if (existingUser) {
+      console.log(`🔄 Reconnect for ${userId} (skipping welcome)`);
+      existingUser.setAppSession(session);
+
+      // Re-attach event listeners
+      existingUser.transcription.setOnQueryReady(async (query, speakerId, prePhoto, isVisual) => {
+        await existingUser.queryProcessor.processQuery(query, speakerId, prePhoto, isVisual);
+      });
+
+      session.events.onLocation((locationData) => {
+        existingUser.location.updateCoordinates(locationData.lat, locationData.lng);
+      });
+
+      session.events.onPhoneNotifications((notifications) => {
+        if (Array.isArray(notifications)) {
+          existingUser.notifications.addNotifications(notifications);
+        } else if (notifications) {
+          existingUser.notifications.addNotification(notifications);
+        }
+      });
+
+      const userTimezone = session.settings.getMentraOS<string>('userTimezone');
+      if (userTimezone) {
+        existingUser.location.setTimezone(userTimezone);
+      }
+
+      session.settings.onMentraosChange<string>('userTimezone', (newTimezone) => {
+        if (newTimezone) {
+          existingUser.location.setTimezone(newTimezone);
+        }
+      });
+
+      session.device.state.modelName.onChange((newModel) => {
+        if (newModel) {
+          existingUser.glassesModel = newModel;
+        }
+      });
+
+      // Notify frontend
+      const hasDisplay = session.capabilities?.hasDisplay ?? false;
+      broadcastChatEvent(userId, {
+        type: "session_started",
+        glassesType: hasDisplay ? "display" : "camera",
+        timestamp: new Date().toISOString(),
+      });
+
+      console.log(`✅ Any AI reconnected for ${userId}`);
+      return; // Skip welcome and re-initialization
+    }
+
+    // First connection — full setup
     const user = sessions.getOrCreate(userId);
 
     // Initialize async components (database, settings)
@@ -107,7 +158,7 @@ export class MentraAI extends AppServer {
       timestamp: new Date().toISOString(),
     });
 
-    console.log(`✅ Mentra AI ready for ${userId}`);
+    console.log(`✅ Any AI ready for ${userId}`);
   }
 
   /**
@@ -119,7 +170,7 @@ export class MentraAI extends AppServer {
     if (hasDisplay) {
       // HUD glasses: show text
       session.layouts.showTextWall(
-        "Mentra AI\n\nWelcome to Mentra AI.\nSay \"Hey Mentra\" followed by your question.",
+        "Any AI\n\nWelcome to Any AI.\nSay \"Hey Any AI\" followed by your question.",
         { durationMs: 3000 }
       );
     } else {
@@ -142,7 +193,7 @@ export class MentraAI extends AppServer {
     userId: string,
     reason: string,
   ): Promise<void> {
-    console.log(`👋 Mentra AI session ended for ${userId}: ${reason}`);
+    console.log(`👋 Any AI session ended for ${userId}: ${reason}`);
 
     // Notify frontend BEFORE cleanup — chatClients is independent from sessions
     broadcastChatEvent(userId, {
@@ -161,13 +212,11 @@ export class MentraAI extends AppServer {
 }
 
 /**
- * Create and configure the Mentra AI server
+ * Create and configure the Any AI server
  */
 export async function createMentraAIServer(config: MentraAIConfig): Promise<MentraAI> {
-  // Connect to MongoDB
-  await connectDB();
-
-  // Create server
+  // DB connection will be handled by Drizzle lazily in Phase 2
+  // For now, just create the server
   const server = new MentraAI(config);
 
   return server;

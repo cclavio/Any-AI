@@ -1,5 +1,5 @@
 /**
- * Mentra AI Configuration Constants
+ * Any AI Configuration Constants
  */
 
 /**
@@ -65,6 +65,4 @@ export const PHOTO_SETTINGS = {
 export const AGENT_SETTINGS = {
   // Maximum tool call iterations
   maxSteps: 5,
-  // Model identifier (Mastra format: "provider/model")
-  model: `google/${process.env.LLM_MODEL || 'gemini-2.5-flash'}`,
 };

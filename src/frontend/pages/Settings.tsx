@@ -164,7 +164,7 @@ function Settings({
 
         {/* Version Info */}
         <div className="pt-8 text-center">
-          <p className="text-[12px] text-gray-500">Mentra AI v1.0.0</p>
+          <p className="text-[12px] text-gray-500">Any AI v1.0.0</p>
         </div>
       </motion.div>
     </div>
