@@ -49,6 +49,10 @@ export const LOCATION_CACHE_SETTINGS = {
   geocodeCacheDurationMs: 10 * 60 * 1000,
   // Weather cache duration (30 minutes in ms)
   weatherCacheDurationMs: 30 * 60 * 1000,
+  // Air quality cache duration (30 minutes in ms)
+  airQualityCacheDurationMs: 30 * 60 * 1000,
+  // Pollen cache duration (2 hours in ms)
+  pollenCacheDurationMs: 2 * 60 * 60 * 1000,
 };
 
 /**

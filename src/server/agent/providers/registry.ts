@@ -75,6 +75,8 @@ export async function validateApiKey(provider: Provider, apiKey: string): Promis
         return res.ok;
       }
       case "anthropic": {
+        // Use a minimal request — a 401 means invalid key,
+        // any other status (200, 400, 429) means the key is valid
         const res = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
@@ -88,7 +90,8 @@ export async function validateApiKey(provider: Provider, apiKey: string): Promis
             messages: [{ role: "user", content: "hi" }],
           }),
         });
-        return res.ok;
+        // 401 = invalid key, anything else = key is valid
+        return res.status !== 401;
       }
       case "google": {
         const res = await fetch(

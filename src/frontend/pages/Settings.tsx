@@ -1,15 +1,9 @@
 import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
-import Header from '../components/Header';
-import { fetchUserSettings } from '../api/settings.api';
 import ProviderSetup from '../components/ProviderSetup';
 
 interface SettingsProps {
-  onBack: () => void;
   isDarkMode: boolean;
-  onToggleDarkMode: () => void;
-  userId: string;
-  onChatHistoryToggle?: (enabled: boolean) => void;
   onEnableDebugMode?: () => void;
 }
 
@@ -17,11 +11,7 @@ interface SettingsProps {
  * Settings page component
  */
 function Settings({
-  onBack,
   isDarkMode,
-  onToggleDarkMode,
-  userId,
-  onChatHistoryToggle,
   onEnableDebugMode,
 }: SettingsProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -50,13 +40,16 @@ function Settings({
         touchAction: 'pan-y',
       }}
     >
-      {/* Header */}
-      <Header
-        isDarkMode={isDarkMode}
-        onToggleDarkMode={onToggleDarkMode}
-        onSettingsClick={() => {}}
-        showBackArrow={false}
-      />
+      {/* Page Title */}
+      <div className="w-full px-[24px] pt-[24px] pb-[8px]">
+        <h1
+          className="text-[22px] font-bold"
+          style={{ color: 'var(--secondary-foreground)' }}
+        >
+          <span style={{ color: 'var(--muted-foreground)', fontWeight: 400 }}>[any]</span>{' '}
+          AI Configuration
+        </h1>
+      </div>
 
       {/* Settings Content */}
       <motion.div
@@ -80,9 +73,9 @@ function Settings({
             className="text-[13px] leading-[1.5]"
             style={{ color: 'var(--muted-foreground)' }}
           >
-            Configure your AI provider and API key below, then say{' '}
+            Configure your AI provider and API key below, then say your{' '}
             <span style={{ color: 'var(--secondary-foreground)', fontWeight: 600 }}>
-              "Hey Jarvis"
+              wake word
             </span>{' '}
             followed by your question.
           </p>

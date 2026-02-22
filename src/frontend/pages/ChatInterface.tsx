@@ -423,11 +423,7 @@ function ChatInterface({ userId, recipientId, onEnableDebugMode }: ChatInterface
   if (currentPage === 'settings') {
     return (
       <Settings
-        onBack={() => setCurrentPage('chat')}
         isDarkMode={isDarkMode}
-        onToggleDarkMode={() => setIsDarkMode(!isDarkMode)}
-        userId={userId}
-        onChatHistoryToggle={(enabled) => setChatHistoryEnabled(enabled)}
         onEnableDebugMode={onEnableDebugMode}
       />
     );

@@ -1,5 +1,5 @@
 {
-  "name": "Any AI",
+  "name": "[any} AI",
   "description": "A multi-provider, bring-your-own-key AI assistant for MentraOS smart glasses. Forked from Mentra AI 2 app",
   "version": "0.8.0",
   "onboardingInstructions": "1. Add [any] AI as a background App. Make sure you remove the Mentra AI app from background apps so you don't have Any AI and Mentra AI running simultaneously.\n2. Tap Background Apps, then tap the [any] AI card to open the webview.\n3. Tap the gear icon to open Settings, then configure your AI provider, model, and API key.\n4. Enjoy!",

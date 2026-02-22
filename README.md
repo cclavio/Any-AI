@@ -21,11 +21,12 @@
 Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts to your hardware — whether your glasses have a HUD display, camera, or speakers — and delivers responses in the most appropriate format.
 
 - **Voice activation** — Say "Hey Any AI" to start (customizable wake word)
-- **Conversational follow-up** — After the AI responds, the mic stays open for 5 seconds so you can ask follow-up questions without repeating the wake word
+- **Conversational follow-up** — After the AI responds, the mic stays open for 10 seconds so you can ask follow-up questions without repeating the wake word
 - **Multi-provider** — Choose between OpenAI, Anthropic, or Google
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
 - **Vision** — Answers questions about what you're seeing (smart photo capture)
 - **Web search** — Real-time search with concise summaries via Jina
+- **Location services** — Nearby places, directions, weather, air quality, and pollen data (optional Google Cloud API key)
 - **Context aware** — Knows your location, time, weather, and conversation history
 - **Timezone detection** — Auto-detects your timezone from GPS when the OS doesn't provide it
 - **Personalization** — Custom assistant name, wake word, and model selection per user
@@ -57,12 +58,13 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 ### Key Technical Changes
 
 - **Agent rewrite** — Replaced `@mastra/core` `Agent` class with direct `generateText()` calls from Vercel AI SDK
-- **Tool conversion** — Mastra `createTool()` → AI SDK `tool()` (search, calculator, thinking tools)
+- **Tool conversion** — Mastra `createTool()` → AI SDK `tool()` (search, calculator, thinking, nearby places, directions)
 - **Provider registry** — `ProviderRegistry` resolves `UserAIConfig` → AI SDK `LanguageModel` at runtime
 - **Smart photo capture** — `isVisualQuery()` classifier determines if camera photo is needed before taking one
 - **Dynamic identity** — System prompt reflects user's chosen assistant name, model, and provider
 - **Auth hardening** — All `/api/*` routes require verified `aos_session` cookie; no endpoint reads userId from query params
 - **Row Level Security** — RLS enabled on all Supabase tables for defense-in-depth
+- **Per-user Google Cloud key** — Location services (geocoding, weather, air quality, pollen, places, directions, timezone) use a per-user API key stored in Vault, with graceful fallbacks when unconfigured
 
 ### Supported Models
 
@@ -87,14 +89,14 @@ src/
 │   │   │   ├── types.ts              # UserAIConfig, MODEL_CATALOG, Provider
 │   │   │   ├── registry.ts           # ProviderRegistry (resolve config → model)
 │   │   │   └── vision.ts             # Multi-provider vision API
-│   │   └── tools/                    # AI SDK tool definitions
+│   │   └── tools/                    # AI SDK tool definitions (search, calculator, thinking, places, directions)
 │   ├── db/
 │   │   ├── client.ts                 # Drizzle + postgres connection
 │   │   ├── schema.ts                 # user_settings, conversations, turns
 │   │   └── vault.ts                  # Supabase Vault helpers (store/retrieve/delete)
 │   ├── manager/
 │   │   ├── ChatHistoryManager.ts     # Drizzle-based conversation persistence
-│   │   ├── LocationManager.ts        # GPS, geocoding, weather, timezone detection
+│   │   ├── LocationManager.ts        # GPS, geocoding, weather, air quality, pollen, timezone
 │   │   ├── QueryProcessor.ts         # Query pipeline (transcription → agent → TTS)
 │   │   └── TranscriptionManager.ts   # Wake word, follow-up mode, audio/LED feedback
 │   ├── routes/routes.ts              # Hono routes + SDK auth middleware
@@ -113,9 +115,9 @@ src/
 User says wake word → Green LED flash → Start listening sound
   → User speaks query → Silence detected → Processing sound loops
     → AI generates response → TTS speaks response
-      → Follow-up mode (green LED 2s, mic open 5s)
+      → Follow-up mode (green LED 2s, mic open 10s)
         → User speaks again (no wake word needed) → repeat
-        → Silence for 5s → return to idle (wake word required)
+        → Silence for 10s → return to idle (wake word required)
 ```
 
 ## Supported Glasses
@@ -170,9 +172,8 @@ ngrok http --url=<YOUR_NGROK_URL> 3000
 | `COOKIE_SECRET` | Yes | Secret for signing auth cookies (`openssl rand -hex 32`) |
 | `PUBLIC_URL` | Yes | Base URL for serving static assets (e.g., `http://localhost:3000`) |
 | `JINA_API_KEY` | No | Jina API key for web search tool |
-| `GOOGLE_MAPS_API_KEY` | No | Google Maps key for geocoding, timezone detection, and weather. Enable Geocoding API, Time Zone API in Google Cloud Console |
 
-Individual AI provider API keys (OpenAI, Anthropic, Google) are **not** server env vars — they are stored per-user in Supabase Vault and entered via the Settings UI.
+AI provider API keys (OpenAI, Anthropic, Google) and the Google Cloud API key (for location services, weather, places, directions, timezone) are **not** server env vars — they are stored per-user in Supabase Vault and configured via the Settings UI.
 
 ## Documentation
 
