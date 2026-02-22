@@ -32,7 +32,7 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Battery check** — Ask "what's my battery?" for instant glasses battery level and charging status
 - **Calendar aware** — Receives calendar events from your phone; ask "what's my schedule?" for an instant readout, or ask the AI questions like "when is my next meeting?"
 - **Context aware** — Knows your location, date, time, weather, calendar, and conversation history
-- **Conversation persistence** — History hydrated from DB on session start; 8-hour context window covers a full working day
+- **Conversation persistence** — History hydrated from DB on session start; 8-hour context window covers a full working day. Each turn records which `user_context` rows were active (`context_ids`), enabling full traceability of what the AI knew when it responded
 - **Session resilience** — Survives network blips and idle socket timeouts with a 5-minute grace period; no "Welcome" replay on reconnect
 - **Timezone detection** — Auto-detects your timezone from GPS when the OS doesn't provide it
 - **Personalization** — Custom assistant name, wake word, and model selection per user
@@ -111,7 +111,7 @@ src/
 │   │   └── tools/                    # AI SDK tool definitions (search, calculator, thinking, places, directions)
 │   ├── db/
 │   │   ├── client.ts                 # Drizzle + postgres connection
-│   │   ├── schema.ts                 # user_settings, conversations, turns, user_context, photos
+│   │   ├── schema.ts                 # user_settings, conversations, turns (w/ context_ids), user_context, photos
 │   │   ├── storage.ts               # Supabase Storage helpers (upload/download/delete photos)
 │   │   └── vault.ts                  # Supabase Vault helpers (store/retrieve/delete)
 │   ├── manager/

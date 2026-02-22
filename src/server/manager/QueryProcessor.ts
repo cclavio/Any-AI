@@ -231,9 +231,10 @@ export class QueryProcessor {
       });
     }
 
-    // Step 8: Save to chat history
+    // Step 8: Save to chat history (with active context IDs for traceability)
     const hadPhoto = photoBuffers.length > 0;
-    await this.user.chatHistory.addTurn(query, response, hadPhoto, photoDataUrl, photoId);
+    const contextIds = this.user.calendar.getActiveContextIds();
+    await this.user.chatHistory.addTurn(query, response, hadPhoto, photoDataUrl, photoId, contextIds);
     lap('SAVE-HISTORY');
 
     console.log(`⏱️ [PIPELINE-DONE] Total: ${Date.now() - pipelineStart}ms`);

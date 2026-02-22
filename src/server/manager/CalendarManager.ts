@@ -40,6 +40,7 @@ interface StoredCalendarEvent {
   dtEnd: number;
   timezone?: string;
   receivedAt: number;
+  contextId?: string;
 }
 
 export class CalendarManager {
@@ -76,6 +77,7 @@ export class CalendarManager {
           dtEnd: data.dtEnd as number,
           timezone: data.timezone as string | undefined,
           receivedAt: data.receivedAt as number,
+          contextId: row.id,
         };
         this.events.set(event.eventId, event);
       }
@@ -116,7 +118,7 @@ export class CalendarManager {
     // Persist to DB
     if (isDbAvailable()) {
       try {
-        await db
+        const [row] = await db
           .insert(userContext)
           .values({
             userId: this.user.userId,
@@ -132,7 +134,11 @@ export class CalendarManager {
               expiresAt: new Date(dtEnd),
               updatedAt: sql`now()`,
             },
-          });
+          })
+          .returning({ id: userContext.id });
+
+        stored.contextId = row.id;
+        this.events.set(event.eventId, stored);
       } catch (error) {
         console.warn(`Failed to persist calendar event for ${this.user.userId}:`, error);
       }
@@ -216,6 +222,15 @@ export class CalendarManager {
     }
 
     return parts.join(". ") + ".";
+  }
+
+  /**
+   * Get the user_context UUIDs for currently active (non-expired) calendar events.
+   */
+  getActiveContextIds(): string[] {
+    return this.getActiveEvents()
+      .map((e) => e.contextId)
+      .filter((id): id is string => id !== undefined);
   }
 
   /**

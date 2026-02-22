@@ -69,6 +69,7 @@ export const conversationTurns = pgTable("conversation_turns", {
   response: text("response").notNull(),
   hadPhoto: boolean("had_photo").notNull().default(false),
   photoId: uuid("photo_id").references(() => photos.id),
+  contextIds: uuid("context_ids").array().default([]),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 

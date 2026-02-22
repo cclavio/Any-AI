@@ -26,6 +26,7 @@ export interface ConversationTurn {
   hadPhoto: boolean;
   photoDataUrl?: string;
   photoId?: string;
+  contextIds?: string[];
 }
 
 /**
@@ -58,7 +59,7 @@ export class ChatHistoryManager {
   /**
    * Add a conversation turn — writes to both memory and DB
    */
-  async addTurn(query: string, response: string, hadPhoto: boolean = false, photoDataUrl?: string, photoId?: string): Promise<void> {
+  async addTurn(query: string, response: string, hadPhoto: boolean = false, photoDataUrl?: string, photoId?: string, contextIds?: string[]): Promise<void> {
     const turn: ConversationTurn = {
       query,
       response,
@@ -66,6 +67,7 @@ export class ChatHistoryManager {
       hadPhoto,
       photoDataUrl,
       photoId,
+      contextIds,
     };
 
     this.recentTurns.push(turn);
@@ -97,6 +99,7 @@ export class ChatHistoryManager {
           response,
           hadPhoto,
           photoId,
+          contextIds: contextIds ?? [],
         });
       } catch (error) {
         console.error("Failed to persist conversation turn:", error);
@@ -169,6 +172,7 @@ export class ChatHistoryManager {
         timestamp: t.timestamp,
         hadPhoto: t.hadPhoto,
         photoId: t.photoId ?? undefined,
+        contextIds: t.contextIds ?? [],
       }));
     } catch (error) {
       console.error("Failed to fetch history by date:", error);
