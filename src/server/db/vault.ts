@@ -17,7 +17,7 @@ import { sql } from "drizzle-orm";
 export async function storeApiKey(
   userId: string,
   provider: string,
-  purpose: "llm" | "vision",
+  purpose: string,
   apiKey: string
 ): Promise<string> {
   if (!isDbAvailable()) throw new Error("Database not available");

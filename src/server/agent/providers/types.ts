@@ -72,6 +72,9 @@ export interface UserAIConfig {
   visionModel: string;
   visionApiKey: string;
 
+  /** Optional Google Cloud API key for location/weather/places/directions/timezone services */
+  googleCloudApiKey?: string;
+
   isConfigured: boolean;
 }
 

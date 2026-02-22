@@ -7,7 +7,7 @@
 
 import { generateText, stepCountIs } from "ai";
 import type { LanguageModel } from "ai";
-import { searchTool, calculatorTool, thinkingTool } from "./tools";
+import { searchTool, calculatorTool, thinkingTool, createPlacesTool, createDirectionsTool } from "./tools";
 import { buildSystemPrompt, classifyResponseMode, type AgentContext } from "./prompt";
 import { ResponseMode, AGENT_SETTINGS } from "../constants/config";
 import { resolveLLMModel } from "./providers/registry";
@@ -114,6 +114,7 @@ export async function generateResponse(options: GenerateOptions): Promise<Genera
     notifications: context.notifications,
     conversationHistory: context.conversationHistory,
     aiConfig: config,
+    googleCloudConfigured: !!config.googleCloudApiKey,
   };
 
   // Resolve AI SDK model via ProviderRegistry
@@ -163,6 +164,11 @@ export async function generateResponse(options: GenerateOptions): Promise<Genera
         search: searchTool,
         calculator: calculatorTool,
         thinking: thinkingTool,
+        // Location-aware tools — only available when GPS is active AND Google Cloud key is configured
+        ...(context.location && config.googleCloudApiKey ? {
+          nearby_places: createPlacesTool(context.location.lat, context.location.lng, config.googleCloudApiKey),
+          directions: createDirectionsTool(context.location.lat, context.location.lng, config.googleCloudApiKey),
+        } : {}),
       },
       stopWhen: stepCountIs(AGENT_SETTINGS.maxSteps),
       onStepFinish: ({ toolCalls }) => {
@@ -171,7 +177,7 @@ export async function generateResponse(options: GenerateOptions): Promise<Genera
           console.log(`   Tool calls this step: ${toolCalls.length}`);
           if (options.onToolCall) {
             for (const tc of toolCalls) {
-              options.onToolCall(tc.toolName);
+              if (tc) options.onToolCall(tc.toolName);
             }
           }
         }

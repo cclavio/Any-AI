@@ -37,6 +37,9 @@ export const userSettings = pgTable("user_settings", {
   visionModel: text("vision_model").default("gemini-2.5-flash"),
   visionApiKeyVaultId: text("vision_api_key_vault_id"),
 
+  // Google Cloud API key (optional — enables location, weather, places, directions, timezone)
+  googleCloudApiKeyVaultId: text("google_cloud_api_key_vault_id"),
+
   // Tracks whether user has completed provider setup
   isAiConfigured: boolean("is_ai_configured").notNull().default(false),
 

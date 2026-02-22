@@ -23,6 +23,9 @@ import {
   validateProviderKey,
   deleteProviderConfig,
   getProviderCatalog,
+  saveGoogleCloudKey,
+  deleteGoogleCloudKey,
+  validateGoogleCloudKeyEndpoint,
 } from "../api/settings";
 import { chatStream } from "../api/chat";
 import { killSession } from "../api/debug";
@@ -66,6 +69,11 @@ api.get("/settings/provider", getProviderConfig);
 api.post("/settings/provider", saveProviderConfig);
 api.post("/settings/provider/validate", validateProviderKey);
 api.delete("/settings/provider/:purpose", deleteProviderConfig);
+
+// Google Cloud API key management
+api.post("/settings/google-cloud", saveGoogleCloudKey);
+api.delete("/settings/google-cloud", deleteGoogleCloudKey);
+api.post("/settings/google-cloud/validate", validateGoogleCloudKeyEndpoint);
 
 // Provider catalog (static, public-ish but still behind auth)
 api.get("/providers/catalog", getProviderCatalog);

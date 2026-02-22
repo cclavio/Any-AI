@@ -24,6 +24,7 @@ function makeContext(overrides: Partial<AgentContext> = {}): AgentContext {
     localTime: "3:00 PM",
     notifications: "No recent notifications.",
     conversationHistory: [],
+    googleCloudConfigured: false,
     ...overrides,
   };
 }

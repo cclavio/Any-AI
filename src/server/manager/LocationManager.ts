@@ -10,11 +10,8 @@
 
 import { Client } from "@googlemaps/google-maps-services-js";
 import type { User } from "../session/User";
-import { isLocationQuery, isWeatherQuery } from "../utils/location-keywords";
+import { isLocationQuery, isWeatherQuery, isAirQualityQuery, isPollenQuery, isTimeQuery } from "../utils/location-keywords";
 import { LOCATION_CACHE_SETTINGS } from "../constants/config";
-
-const GOOGLE_MAPS_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
-const GOOGLE_WEATHER_API_KEY = process.env.GOOGLE_WEATHER_API_KEY;
 
 // Google Maps client
 const mapsClient = new Client({});
@@ -28,6 +25,24 @@ export interface WeatherCondition {
   condition: string;           // e.g., "Sunny", "Cloudy"
   humidity?: number;
   wind?: string;
+}
+
+/**
+ * Air quality data
+ */
+export interface AirQualityData {
+  aqi: number;                 // Universal AQI (0-500)
+  category: string;            // e.g., "Good air quality"
+  dominantPollutant: string;   // e.g., "pm25"
+}
+
+/**
+ * Pollen data
+ */
+export interface PollenData {
+  grass: { level: string; value: number } | null;
+  tree: { level: string; value: number } | null;
+  weed: { level: string; value: number } | null;
 }
 
 /**
@@ -51,9 +66,17 @@ export interface LocationContext {
   // Weather
   weather?: WeatherCondition;
 
+  // Air quality
+  airQuality?: AirQualityData;
+
+  // Pollen
+  pollen?: PollenData;
+
   // Cache metadata
   geocodedAt: number;
   weatherFetchedAt: number;
+  airQualityFetchedAt: number;
+  pollenFetchedAt: number;
 }
 
 /**
@@ -72,7 +95,19 @@ export class LocationManager {
   private lastGeocodedLat: number | null = null;
   private lastGeocodedLng: number | null = null;
 
-  constructor(private user: User) {}
+  constructor(private user: User) {
+    console.log(`📍 LocationManager init for ${user.userId}`);
+  }
+
+  /** Per-user Google Cloud API key (loaded from Vault via aiConfig) */
+  private get googleApiKey(): string | null {
+    return this.user.aiConfig?.googleCloudApiKey || null;
+  }
+
+  /** Whether the user has Google Cloud services configured */
+  hasGoogleServices(): boolean {
+    return !!this.googleApiKey;
+  }
 
   /**
    * Update raw coordinates (called when SDK sends location update)
@@ -83,13 +118,22 @@ export class LocationManager {
     console.log(`📍 Location updated for ${this.user.userId}: ${lat}, ${lng}`);
 
     // If no timezone set yet (MentraOS didn't provide one), auto-detect from GPS
-    if (!this.userTimezone && GOOGLE_MAPS_API_KEY) {
+    if (!this.userTimezone && this.googleApiKey) {
+      console.log(`🕐 Attempting timezone auto-detect from GPS for ${this.user.userId}...`);
       this.fetchTimezoneFromCoordinates(lat, lng).then((tz) => {
         if (tz && !this.userTimezone) {
           this.setTimezone(tz);
           console.log(`🕐 Timezone auto-detected from GPS: ${tz}`);
+        } else if (!tz) {
+          console.warn(`⚠️ Timezone auto-detect returned null for ${lat}, ${lng}`);
+        } else {
+          console.log(`🕐 Timezone already set (${this.userTimezone}), skipping GPS result: ${tz}`);
         }
       });
+    } else if (this.userTimezone) {
+      console.log(`🕐 Timezone already set: ${this.userTimezone}, skipping auto-detect`);
+    } else if (!this.googleApiKey) {
+      console.warn(`⚠️ Cannot auto-detect timezone: Google Cloud API key not configured`);
     }
   }
 
@@ -112,7 +156,7 @@ export class LocationManager {
    * Check if a query needs location data
    */
   queryNeedsLocation(query: string): boolean {
-    return isLocationQuery(query) || isWeatherQuery(query);
+    return isLocationQuery(query) || isWeatherQuery(query) || isTimeQuery(query);
   }
 
   /**
@@ -120,6 +164,20 @@ export class LocationManager {
    */
   queryNeedsWeather(query: string): boolean {
     return isWeatherQuery(query);
+  }
+
+  /**
+   * Check if a query needs air quality data
+   */
+  queryNeedsAirQuality(query: string): boolean {
+    return isAirQualityQuery(query);
+  }
+
+  /**
+   * Check if a query needs pollen data
+   */
+  queryNeedsPollen(query: string): boolean {
+    return isPollenQuery(query);
   }
 
   /**
@@ -140,9 +198,11 @@ export class LocationManager {
 
     // Check if we need to refresh weather
     const needsWeather = this.queryNeedsWeather(query) && this.shouldRefreshWeather();
+    const needsAirQuality = this.queryNeedsAirQuality(query) && this.shouldRefreshAirQuality();
+    const needsPollen = this.queryNeedsPollen(query) && this.shouldRefreshPollen();
 
     // Return cached if nothing needs refresh
-    if (!needsGeocoding && !needsWeather && this.cachedContext) {
+    if (!needsGeocoding && !needsWeather && !needsAirQuality && !needsPollen && this.cachedContext) {
       console.log(`📦 Using cached location context for ${this.user.userId}`);
       return this.cachedContext;
     }
@@ -152,9 +212,12 @@ export class LocationManager {
       await this.refreshGeocoding(lat, lng);
     }
 
-    if (needsWeather && this.cachedContext) {
-      await this.refreshWeather(lat, lng);
-    }
+    // Fetch optional data in parallel
+    const fetches: Promise<void>[] = [];
+    if (needsWeather && this.cachedContext) fetches.push(this.refreshWeather(lat, lng));
+    if (needsAirQuality && this.cachedContext) fetches.push(this.refreshAirQuality(lat, lng));
+    if (needsPollen && this.cachedContext) fetches.push(this.refreshPollen(lat, lng));
+    if (fetches.length > 0) await Promise.all(fetches);
 
     return this.cachedContext;
   }
@@ -212,11 +275,29 @@ export class LocationManager {
   }
 
   /**
+   * Check if air quality should be refreshed
+   */
+  private shouldRefreshAirQuality(): boolean {
+    if (!this.cachedContext || !this.cachedContext.airQuality) return true;
+    const cacheAge = Date.now() - this.cachedContext.airQualityFetchedAt;
+    return cacheAge > LOCATION_CACHE_SETTINGS.airQualityCacheDurationMs;
+  }
+
+  /**
+   * Check if pollen should be refreshed
+   */
+  private shouldRefreshPollen(): boolean {
+    if (!this.cachedContext || !this.cachedContext.pollen) return true;
+    const cacheAge = Date.now() - this.cachedContext.pollenFetchedAt;
+    return cacheAge > LOCATION_CACHE_SETTINGS.pollenCacheDurationMs;
+  }
+
+  /**
    * Refresh geocoding data from Google Maps API
    */
   private async refreshGeocoding(lat: number, lng: number): Promise<void> {
-    if (!GOOGLE_MAPS_API_KEY) {
-      console.warn('⚠️ GOOGLE_MAPS_API_KEY not configured');
+    if (!this.googleApiKey) {
+      console.warn('⚠️ Google Cloud API key not configured');
       this.initializeContextWithDefaults(lat, lng);
       return;
     }
@@ -227,7 +308,7 @@ export class LocationManager {
       const response = await mapsClient.reverseGeocode({
         params: {
           latlng: { lat, lng },
-          key: GOOGLE_MAPS_API_KEY,
+          key: this.googleApiKey!,
         },
         timeout: 5000,
       });
@@ -281,7 +362,11 @@ export class LocationManager {
         neighborhood: neighborhood || undefined,
         geocodedAt: now,
         weatherFetchedAt: this.cachedContext?.weatherFetchedAt || 0,
+        airQualityFetchedAt: this.cachedContext?.airQualityFetchedAt || 0,
+        pollenFetchedAt: this.cachedContext?.pollenFetchedAt || 0,
         weather: this.cachedContext?.weather,
+        airQuality: this.cachedContext?.airQuality,
+        pollen: this.cachedContext?.pollen,
       };
 
       this.lastGeocodedLat = lat;
@@ -299,17 +384,12 @@ export class LocationManager {
    * Refresh weather data from Google Weather API
    */
   private async refreshWeather(lat: number, lng: number): Promise<void> {
-    if (!GOOGLE_WEATHER_API_KEY) {
-      console.warn('⚠️ GOOGLE_WEATHER_API_KEY not configured');
-      return;
-    }
-
-    if (!this.cachedContext) return;
+    if (!this.googleApiKey || !this.cachedContext) return;
 
     console.log(`🌤️ Fetching weather for ${lat}, ${lng}`);
 
     try {
-      const url = `https://weather.googleapis.com/v1/currentConditions:lookup?key=${GOOGLE_WEATHER_API_KEY}&location.latitude=${lat}&location.longitude=${lng}`;
+      const url = `https://weather.googleapis.com/v1/currentConditions:lookup?key=${this.googleApiKey}&location.latitude=${lat}&location.longitude=${lng}`;
 
       const response = await fetch(url, {
         method: 'GET',
@@ -347,6 +427,94 @@ export class LocationManager {
   }
 
   /**
+   * Refresh air quality data from Google Air Quality API
+   */
+  private async refreshAirQuality(lat: number, lng: number): Promise<void> {
+    if (!this.googleApiKey || !this.cachedContext) return;
+
+    console.log(`🌬️ Fetching air quality for ${lat}, ${lng}`);
+
+    try {
+      const response = await fetch(
+        `https://airquality.googleapis.com/v1/currentConditions:lookup?key=${this.googleApiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location: { latitude: lat, longitude: lng },
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        console.warn(`⚠️ Air Quality API error: ${response.status}`);
+        return;
+      }
+
+      const data = await response.json();
+      const index = data.indexes?.find((i: any) => i.code === "uaqi");
+
+      if (index) {
+        this.cachedContext.airQuality = {
+          aqi: index.aqi,
+          category: index.category || "Unknown",
+          dominantPollutant: index.dominantPollutant || "unknown",
+        };
+        this.cachedContext.airQualityFetchedAt = Date.now();
+        console.log(`✅ Air Quality: AQI ${index.aqi} — ${index.category}`);
+      }
+    } catch (error) {
+      console.error("❌ Air Quality error:", error);
+    }
+  }
+
+  /**
+   * Refresh pollen data from Google Pollen API
+   */
+  private async refreshPollen(lat: number, lng: number): Promise<void> {
+    if (!this.googleApiKey || !this.cachedContext) return;
+
+    console.log(`🌿 Fetching pollen data for ${lat}, ${lng}`);
+
+    try {
+      const url = `https://pollen.googleapis.com/v1/forecast:lookup?key=${this.googleApiKey}&location.latitude=${lat}&location.longitude=${lng}&days=1`;
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        console.warn(`⚠️ Pollen API error: ${response.status}`);
+        return;
+      }
+
+      const data = await response.json();
+      const today = data.dailyInfo?.[0];
+
+      if (today?.pollenTypeInfo) {
+        const getType = (code: string) => {
+          const info = today.pollenTypeInfo.find((p: any) => p.code === code);
+          if (!info?.indexInfo) return null;
+          return { level: info.indexInfo.category || "Unknown", value: info.indexInfo.value || 0 };
+        };
+
+        this.cachedContext.pollen = {
+          grass: getType("GRASS"),
+          tree: getType("TREE"),
+          weed: getType("WEED"),
+        };
+        this.cachedContext.pollenFetchedAt = Date.now();
+
+        const levels = [
+          this.cachedContext.pollen.grass ? `Grass: ${this.cachedContext.pollen.grass.level}` : null,
+          this.cachedContext.pollen.tree ? `Tree: ${this.cachedContext.pollen.tree.level}` : null,
+          this.cachedContext.pollen.weed ? `Weed: ${this.cachedContext.pollen.weed.level}` : null,
+        ].filter(Boolean).join(", ");
+        console.log(`✅ Pollen: ${levels}`);
+      }
+    } catch (error) {
+      console.error("❌ Pollen error:", error);
+    }
+  }
+
+  /**
    * Initialize context with default values
    */
   private initializeContextWithDefaults(lat: number, lng: number): void {
@@ -359,6 +527,8 @@ export class LocationManager {
       country: 'Unknown',
       geocodedAt: now,
       weatherFetchedAt: 0,
+      airQualityFetchedAt: 0,
+      pollenFetchedAt: 0,
     };
     this.lastGeocodedLat = lat;
     this.lastGeocodedLng = lng;
@@ -389,14 +559,14 @@ export class LocationManager {
    * Used as fallback when MentraOS doesn't provide userTimezone.
    */
   private async fetchTimezoneFromCoordinates(lat: number, lng: number): Promise<string | null> {
-    if (!GOOGLE_MAPS_API_KEY) return null;
+    if (!this.googleApiKey) return null;
 
     try {
       const response = await mapsClient.timezone({
         params: {
           location: { lat, lng },
           timestamp: Math.floor(Date.now() / 1000),
-          key: GOOGLE_MAPS_API_KEY,
+          key: this.googleApiKey,
         },
         timeout: 5000,
       });

@@ -6,6 +6,9 @@ import {
   saveProviderConfig,
   validateProviderKey,
   updateUserSettings,
+  saveGoogleCloudKey,
+  deleteGoogleCloudKey,
+  validateGoogleCloudKey,
   type ProviderCatalog,
   type ModelInfo,
 } from '../api/settings.api';
@@ -195,6 +198,11 @@ export default function ProviderSetup() {
   const [visionKeySet, setVisionKeySet] = useState(false);
   const [visionTestStatus, setVisionTestStatus] = useState<TestStatus>('idle');
 
+  // Google Cloud (optional)
+  const [googleCloudKey, setGoogleCloudKey] = useState('');
+  const [googleCloudKeySet, setGoogleCloudKeySet] = useState(false);
+  const [googleCloudTestStatus, setGoogleCloudTestStatus] = useState<TestStatus>('idle');
+
   // UI
   const [useSameProvider, setUseSameProvider] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -216,15 +224,9 @@ export default function ProviderSetup() {
         setVisionProvider(config.vision.provider || '');
         setVisionModel(config.vision.model || '');
         setVisionKeySet(config.vision.isConfigured);
+        setGoogleCloudKeySet(config.googleCloud?.isConfigured ?? false);
 
-        // Auto-check "use same" if both configured with same provider + model
-        if (
-          config.llm.provider &&
-          config.llm.provider === config.vision.provider &&
-          config.llm.model === config.vision.model
-        ) {
-          setUseSameProvider(true);
-        }
+        // Note: "use same provider" always starts unchecked so vision section is visible
       } catch (err) {
         console.error('Failed to load provider settings:', err);
       } finally {
@@ -345,6 +347,21 @@ export default function ProviderSetup() {
         }
         setVisionKeySet(true);
         setVisionApiKey('');
+      }
+
+      // 5. Save Google Cloud key if entered
+      if (googleCloudKey) {
+        const result = await saveGoogleCloudKey(googleCloudKey);
+        if (!result.success) {
+          setSaveMessage({
+            type: 'error',
+            text: result.error || 'Failed to save Google Cloud key',
+          });
+          setSaving(false);
+          return;
+        }
+        setGoogleCloudKeySet(true);
+        setGoogleCloudKey('');
       }
 
       setSaveMessage({ type: 'success', text: 'Settings saved' });
@@ -496,6 +513,130 @@ export default function ProviderSetup() {
           }
         />
       )}
+
+      {/* Google Cloud (Optional) */}
+      <div>
+        <h3
+          className="text-[12px] font-semibold uppercase tracking-wide px-[4px] mb-[6px]"
+          style={{ color: 'var(--muted-foreground)' }}
+        >
+          Google Cloud (Optional)
+        </h3>
+        <div
+          className="rounded-[16px] overflow-hidden"
+          style={{ backgroundColor: 'var(--primary-foreground)' }}
+        >
+          {/* Description */}
+          <div className="px-[16px] py-[12px]">
+            <p
+              className="text-[12px] leading-[18px]"
+              style={{ color: 'var(--muted-foreground)' }}
+            >
+              Enables location services: weather, air quality, pollen, nearby places, directions, and timezone detection. Requires a Google Cloud API key with these APIs enabled: Geocoding, Places (New), Routes, Time Zone, Weather, Air Quality, Pollen.
+            </p>
+          </div>
+
+          <div
+            className="mx-[16px]"
+            style={{ borderBottom: '1px solid var(--border)' }}
+          />
+
+          {/* API Key */}
+          <div className="flex items-center gap-2 px-[16px] h-[48px]">
+            <span
+              className="text-[14px] font-medium shrink-0"
+              style={{ color: 'var(--secondary-foreground)' }}
+            >
+              API Key
+            </span>
+            <div className="flex-1 flex items-center gap-1 min-w-0">
+              <input
+                type="password"
+                value={googleCloudKey}
+                onChange={(e) => {
+                  setGoogleCloudKey(e.target.value);
+                  setGoogleCloudTestStatus('idle');
+                }}
+                placeholder={googleCloudKeySet ? '••••••••' : 'Enter API key'}
+                className="flex-1 text-[14px] bg-transparent border-none outline-none text-right min-w-0"
+                style={{ color: 'var(--secondary-foreground)' }}
+              />
+              <button
+                onClick={async () => {
+                  if (!googleCloudKey) return;
+                  setGoogleCloudTestStatus('testing');
+                  try {
+                    const result = await validateGoogleCloudKey(googleCloudKey);
+                    setGoogleCloudTestStatus(result.valid ? 'valid' : 'invalid');
+                  } catch {
+                    setGoogleCloudTestStatus('invalid');
+                  }
+                }}
+                disabled={!googleCloudKey || googleCloudTestStatus === 'testing'}
+                className="shrink-0 text-[12px] font-medium px-2 py-1 rounded-[8px] transition-all disabled:opacity-40"
+                style={{
+                  backgroundColor: 'var(--accent)',
+                  color: 'var(--accent-foreground)',
+                }}
+                type="button"
+              >
+                {googleCloudTestStatus === 'testing' ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : googleCloudTestStatus === 'valid' ? (
+                  <span className="flex items-center gap-1 text-green-500">
+                    <Check size={12} /> Valid
+                  </span>
+                ) : googleCloudTestStatus === 'invalid' ? (
+                  <span className="flex items-center gap-1 text-red-500">
+                    <X size={12} /> Invalid
+                  </span>
+                ) : (
+                  'Test'
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Remove key button (only shown when key is set) */}
+          {googleCloudKeySet && (
+            <>
+              <div
+                className="mx-[16px]"
+                style={{ borderBottom: '1px solid var(--border)' }}
+              />
+              <div className="flex items-center justify-between px-[16px] h-[48px]">
+                <span
+                  className="text-[14px] font-medium"
+                  style={{ color: 'var(--secondary-foreground)' }}
+                >
+                  Status
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] text-green-500">Configured</span>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await deleteGoogleCloudKey();
+                        setGoogleCloudKeySet(false);
+                        setGoogleCloudKey('');
+                        setSaveMessage({ type: 'success', text: 'Google Cloud key removed' });
+                        setTimeout(() => setSaveMessage(null), 3000);
+                      } catch {
+                        setSaveMessage({ type: 'error', text: 'Failed to remove key' });
+                      }
+                    }}
+                    className="text-[12px] font-medium px-2 py-1 rounded-[8px] text-red-500"
+                    style={{ backgroundColor: 'var(--accent)' }}
+                    type="button"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Save button */}
       <button

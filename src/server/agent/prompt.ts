@@ -35,6 +35,9 @@ export interface AgentContext {
 
   // User's AI configuration
   aiConfig?: UserAIConfig;
+
+  // Whether Google Cloud services are configured (location, weather, places, directions, timezone)
+  googleCloudConfigured: boolean;
 }
 
 /**
@@ -57,6 +60,11 @@ export function buildSystemPrompt(context: AgentContext): string {
 
   // Context sections
   sections.push(buildContextSection(context));
+
+  // Google Cloud services section (fallback guidance when not configured)
+  if (!context.googleCloudConfigured) {
+    sections.push(buildGoogleServicesUnavailableSection(context));
+  }
 
   // TTS formatting only for speaker glasses (no display)
   if (context.hasSpeakers && !context.hasDisplay) {
@@ -172,9 +180,13 @@ function buildToolUsageSection(): string {
 
 2. **Search for real-time data**: I ONLY use web search when the answer depends on CURRENT data I don't have (today's weather, live scores, recent news, business hours, obscure topics). CRITICAL: I search AT MOST ONCE per user query. One search call is enough — I never refine or repeat searches.
 
-3. **Calculator for math**: Use the calculator tool for any arithmetic, conversions, or calculations.
+3. **Nearby places**: Use the nearby_places tool when the user asks to find a specific type of place near them (restaurants, coffee shops, gas stations, etc.). This uses their exact GPS location for accurate results.
 
-4. **Think through complex problems**: Use the thinking tool to reason step-by-step about complex questions before answering.`;
+4. **Directions**: Use the directions tool when the user asks how to get somewhere or wants navigation instructions. Defaults to walking directions.
+
+5. **Calculator for math**: Use the calculator tool for any arithmetic, conversions, or calculations.
+
+6. **Think through complex problems**: Use the thinking tool to reason step-by-step about complex questions before answering.`;
 }
 
 /**
@@ -231,6 +243,19 @@ function buildContextSection(context: AgentContext): string {
     if (loc.weather) {
       locationStr += ` | Weather: ${loc.weather.temperature}°F (${loc.weather.temperatureCelsius}°C), ${loc.weather.condition}`;
     }
+    if (loc.airQuality) {
+      locationStr += ` | Air Quality: AQI ${loc.airQuality.aqi} (${loc.airQuality.category})`;
+    }
+    if (loc.pollen) {
+      const pollenParts = [
+        loc.pollen.grass ? `Grass: ${loc.pollen.grass.level}` : null,
+        loc.pollen.tree ? `Tree: ${loc.pollen.tree.level}` : null,
+        loc.pollen.weed ? `Weed: ${loc.pollen.weed.level}` : null,
+      ].filter(Boolean);
+      if (pollenParts.length > 0) {
+        locationStr += ` | Pollen: ${pollenParts.join(', ')}`;
+      }
+    }
     sections.push(`**Location:** ${locationStr}`);
     sections.push(`**Location Note:** When the user asks where they are, describe the location using the neighborhood, street name, and nearby landmarks or cross streets - but do NOT read out the exact street number (GPS addresses can be off by a few numbers). Use the full address internally for finding nearby places, directions, and mapping.`);
   }
@@ -259,6 +284,28 @@ function buildContextSection(context: AgentContext): string {
   }
 
   return `## Context\n\n${sections.join('\n\n')}`;
+}
+
+/**
+ * Google Cloud services unavailable — guides agent to suggest adding key + web search fallback
+ */
+function buildGoogleServicesUnavailableSection(context: AgentContext): string {
+  const lines = [
+    `## Location Services (Not Configured)`,
+    ``,
+    `Google Cloud services are NOT set up. This means weather, air quality, pollen, nearby places, directions, and timezone detection are unavailable.`,
+    ``,
+    `When the user asks about weather, nearby places, directions, air quality, pollen, or time:`,
+    `1. Try to answer using a web search as a fallback.`,
+    `2. Briefly mention that they can add a Google Cloud API key in Settings to enable these features directly.`,
+  ];
+
+  if (!context.timezone) {
+    lines.push(``);
+    lines.push(`**Timezone Note:** The current time shown may be in the server's timezone, not the user's local timezone. If the user asks about the time, mention that adding a Google Cloud API key in Settings will enable automatic timezone detection from their GPS location.`);
+  }
+
+  return lines.join('\n');
 }
 
 /**

@@ -114,12 +114,16 @@ export class User {
     // Decrypt API keys from Vault
     let llmApiKey = "";
     let visionApiKey = "";
+    let googleCloudApiKey: string | undefined;
 
     if (settings.llmApiKeyVaultId) {
       llmApiKey = (await getApiKey(settings.llmApiKeyVaultId)) ?? "";
     }
     if (settings.visionApiKeyVaultId) {
       visionApiKey = (await getApiKey(settings.visionApiKeyVaultId)) ?? "";
+    }
+    if (settings.googleCloudApiKeyVaultId) {
+      googleCloudApiKey = (await getApiKey(settings.googleCloudApiKeyVaultId)) ?? undefined;
     }
 
     const llmProvider = (settings.llmProvider ?? "openai") as UserAIConfig["llmProvider"];
@@ -136,6 +140,7 @@ export class User {
       visionProvider,
       visionModel: settings.visionModel ?? "gemini-2.5-flash",
       visionApiKey,
+      googleCloudApiKey,
       isConfigured: settings.isAiConfigured,
     };
   }

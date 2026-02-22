@@ -17,6 +17,7 @@ export interface ProviderConfig {
   wakeWord: string;
   llm: { provider: string; model: string; isConfigured: boolean };
   vision: { provider: string; model: string; isConfigured: boolean };
+  googleCloud: { isConfigured: boolean };
 }
 
 export interface ModelInfo {
@@ -153,4 +154,53 @@ export const fetchProviderCatalog = async (): Promise<ProviderCatalog> => {
   if (!response.ok) throw new Error("Failed to fetch provider catalog");
   const data = await response.json();
   return data.providers;
+};
+
+// ─── Google Cloud API Key ───
+
+/**
+ * Save Google Cloud API key (validates, stores in Vault)
+ */
+export const saveGoogleCloudKey = async (
+  apiKey: string
+): Promise<{ success: boolean; error?: string }> => {
+  const response = await fetch(`${getApiUrl()}/api/settings/google-cloud`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ apiKey }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    return { success: false, error: data.error || "Failed to save Google Cloud key" };
+  }
+  return data;
+};
+
+/**
+ * Delete Google Cloud API key
+ */
+export const deleteGoogleCloudKey = async (): Promise<{ success: boolean }> => {
+  const response = await fetch(`${getApiUrl()}/api/settings/google-cloud`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to delete Google Cloud key");
+  return response.json();
+};
+
+/**
+ * Validate Google Cloud API key without saving
+ */
+export const validateGoogleCloudKey = async (
+  apiKey: string
+): Promise<{ valid: boolean }> => {
+  const response = await fetch(`${getApiUrl()}/api/settings/google-cloud/validate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ apiKey }),
+  });
+  if (!response.ok) throw new Error("Failed to validate Google Cloud key");
+  return response.json();
 };

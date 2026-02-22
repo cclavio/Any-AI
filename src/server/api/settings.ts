@@ -131,6 +131,7 @@ export async function getProviderConfig(c: Context) {
         wakeWord: "Hey Jarvis",
         llm: { provider: "openai", model: "gpt-5-mini", isConfigured: false },
         vision: { provider: "google", model: "gemini-2.5-flash", isConfigured: false },
+        googleCloud: { isConfigured: false },
       });
     }
 
@@ -145,6 +146,7 @@ export async function getProviderConfig(c: Context) {
         wakeWord: "Hey Jarvis",
         llm: { provider: "openai", model: "gpt-5-mini", isConfigured: false },
         vision: { provider: "google", model: "gemini-2.5-flash", isConfigured: false },
+        googleCloud: { isConfigured: false },
       });
     }
 
@@ -160,6 +162,9 @@ export async function getProviderConfig(c: Context) {
         provider: settings.visionProvider ?? "google",
         model: settings.visionModel ?? "gemini-2.5-flash",
         isConfigured: !!settings.visionApiKeyVaultId,
+      },
+      googleCloud: {
+        isConfigured: !!settings.googleCloudApiKeyVaultId,
       },
     });
   } catch (error) {
@@ -330,6 +335,145 @@ export async function deleteProviderConfig(c: Context) {
   } catch (error) {
     console.error("Error deleting provider config:", error);
     return c.json({ error: "Failed to delete provider config" }, 500);
+  }
+}
+
+/**
+ * POST /api/settings/google-cloud — Save Google Cloud API key (validates, stores in Vault)
+ */
+export async function saveGoogleCloudKey(c: Context) {
+  const userId = c.get("authUserId") as string | undefined;
+  if (!userId) return c.json({ error: "Unauthorized" }, 401);
+
+  try {
+    const body = await c.req.json();
+    const { apiKey } = body as { apiKey: string };
+
+    if (!apiKey) {
+      return c.json({ error: "Missing required field: apiKey" }, 400);
+    }
+
+    if (!isDbAvailable()) {
+      return c.json({ error: "Database not available" }, 503);
+    }
+
+    // Validate the key by calling Google Timezone API with a test request
+    const isValid = await validateGoogleCloudApiKey(apiKey);
+    if (!isValid) {
+      return c.json({ success: false, error: "Google Cloud API key validation failed. Ensure the Timezone API is enabled." }, 400);
+    }
+
+    // Store key in Vault
+    const vaultId = await storeApiKey(userId, "google", "cloud", apiKey);
+
+    // Ensure row exists and update
+    const [existing] = await db
+      .select()
+      .from(userSettings)
+      .where(eq(userSettings.userId, userId));
+
+    if (!existing) {
+      await db.insert(userSettings).values({ userId, googleCloudApiKeyVaultId: vaultId, updatedAt: new Date() });
+    } else {
+      // Delete old Vault secret if replacing
+      if (existing.googleCloudApiKeyVaultId) {
+        await deleteApiKey(existing.googleCloudApiKeyVaultId);
+      }
+      await db
+        .update(userSettings)
+        .set({ googleCloudApiKeyVaultId: vaultId, updatedAt: new Date() })
+        .where(eq(userSettings.userId, userId));
+    }
+
+    // Refresh the live session's in-memory AI config
+    await sessions.get(userId)?.reloadAIConfig();
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Error saving Google Cloud key:", error);
+    return c.json({ error: "Failed to save Google Cloud key" }, 500);
+  }
+}
+
+/**
+ * DELETE /api/settings/google-cloud — Remove Google Cloud API key
+ */
+export async function deleteGoogleCloudKey(c: Context) {
+  const userId = c.get("authUserId") as string | undefined;
+  if (!userId) return c.json({ error: "Unauthorized" }, 401);
+
+  try {
+    if (!isDbAvailable()) {
+      return c.json({ error: "Database not available" }, 503);
+    }
+
+    const [settings] = await db
+      .select()
+      .from(userSettings)
+      .where(eq(userSettings.userId, userId));
+
+    if (!settings) {
+      return c.json({ error: "No settings found" }, 404);
+    }
+
+    // Delete Vault secret
+    if (settings.googleCloudApiKeyVaultId) {
+      await deleteApiKey(settings.googleCloudApiKeyVaultId);
+    }
+
+    // Clear the column
+    await db
+      .update(userSettings)
+      .set({ googleCloudApiKeyVaultId: null, updatedAt: new Date() })
+      .where(eq(userSettings.userId, userId));
+
+    // Refresh the live session's in-memory AI config
+    await sessions.get(userId)?.reloadAIConfig();
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting Google Cloud key:", error);
+    return c.json({ error: "Failed to delete Google Cloud key" }, 500);
+  }
+}
+
+/**
+ * POST /api/settings/google-cloud/validate — Validate Google Cloud API key without saving
+ */
+export async function validateGoogleCloudKeyEndpoint(c: Context) {
+  const userId = c.get("authUserId") as string | undefined;
+  if (!userId) return c.json({ error: "Unauthorized" }, 401);
+
+  try {
+    const body = await c.req.json();
+    const { apiKey } = body as { apiKey: string };
+
+    if (!apiKey) {
+      return c.json({ error: "Missing required field: apiKey" }, 400);
+    }
+
+    const isValid = await validateGoogleCloudApiKey(apiKey);
+    return c.json({ valid: isValid });
+  } catch (error) {
+    console.error("Error validating Google Cloud key:", error);
+    return c.json({ error: "Failed to validate Google Cloud key" }, 500);
+  }
+}
+
+/**
+ * Validate a Google Cloud API key by calling the Timezone API with a test request.
+ * Uses location=0,0 (null island) and timestamp=0 — returns OK if the key is valid and Timezone API is enabled.
+ */
+async function validateGoogleCloudApiKey(apiKey: string): Promise<boolean> {
+  try {
+    const url = `https://maps.googleapis.com/maps/api/timezone/json?location=0,0&timestamp=0&key=${apiKey}`;
+    const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!response.ok) return false;
+    const data = await response.json();
+    // status "OK" or "ZERO_RESULTS" both indicate a valid key
+    return data.status === "OK" || data.status === "ZERO_RESULTS";
+  } catch {
+    return false;
   }
 }
 
