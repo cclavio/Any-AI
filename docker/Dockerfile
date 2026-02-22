@@ -8,5 +8,8 @@ RUN bun install --frozen-lockfile
 # Copy the entire application code
 COPY . .
 
-# Expose the port (Porter uses 80)
-EXPOSE 80
+# Railway injects PORT as env var (default 3000)
+ENV PORT=3000
+EXPOSE ${PORT}
+
+CMD ["bun", "src/index.ts"]
