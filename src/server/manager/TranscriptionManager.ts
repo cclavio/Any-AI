@@ -63,6 +63,9 @@ export class TranscriptionManager {
   // Session disconnect safety — prevents zombie query processing
   private destroyed = false;
 
+  // Diagnostic: track whether any STT events have arrived since setup
+  private sttEventCount = 0;
+
   constructor(private user: User) {}
 
   /**
@@ -86,6 +89,8 @@ export class TranscriptionManager {
       },
     );
 
+    this.sttEventCount = 0;
+
     const wakeWord = this.user.aiConfig?.wakeWord ?? 'hey any ai';
     console.log(`🎤 TranscriptionManager ready for ${this.user.userId} (wake word: "${wakeWord}")`);
   }
@@ -96,7 +101,13 @@ export class TranscriptionManager {
   private async handleTranscription(data: TranscriptionData): Promise<void> {
     const { text, isFinal, speakerId } = data as TranscriptionData & { speakerId?: string };
 
-    // Log all transcription events for debugging (truncated to avoid log spam)
+    // Diagnostic: confirm STT stream is alive (log first event + every 100th)
+    this.sttEventCount++;
+    if (this.sttEventCount === 1 || this.sttEventCount % 100 === 0) {
+      console.log(`🎤 [STT-ALIVE] Event #${this.sttEventCount} for ${this.user.userId}: "${text.slice(0, 40)}" (final=${isFinal})`);
+    }
+
+    // Log final transcription events for debugging
     if (isFinal) {
       console.log(`🎤 [STT] "${text.slice(0, 80)}" (final=${isFinal}, listening=${this.isListening}, processing=${this.isProcessing})`);
     }

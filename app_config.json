@@ -1,7 +1,17 @@
 {
   "name": "Any AI",
-  "description": "A multi-provider, bring-your-own-key AI assistant for MentraOS smart glasses",
-  "version": "1.0.0",
+  "description": "A multi-provider, bring-your-own-key AI assistant for MentraOS smart glasses. Forked from Mentra AI 2 app",
+  "version": "0.8.0",
+  "onboardingInstructions": "1. Add [any] AI as a background App. Make sure you remove the Mentra AI app from background apps so you don't have Any AI and Mentra AI running simultaneously.\n2. Tap Background Apps, and then the \"right\" arrow for the [any] AI app to configure your AI provider and model.\n3. Choose your provider and models for LLM and Vision (OpenAI, Anthropic, Google Gemini are all supported).\n4. Add your API key(s).\n5. Enjoy!",
+  "publicUrl": "https://any-ai-production.up.railway.app",
+  "logoURL": "https://mentra-store-cdn.mentraglass.com/mini_app_assets/com.clavionlabs.anyai/1771730415158-any-ai-logo-2.png",
+  "appType": "background",
+  "permissions": [
+    {
+      "type": "MICROPHONE",
+      "description": "Access to microphone for voice input and audio processing"
+    }
+  ],
   "settings": [
     {
       "type": "group",
@@ -19,7 +29,7 @@
       "type": "text",
       "key": "wake_word",
       "label": "Wake Word",
-      "defaultValue": "hey any ai"
+      "defaultValue": "Hey Jarvis"
     },
     {
       "type": "group",
@@ -36,7 +46,7 @@
         { "label": "Anthropic", "value": "anthropic" },
         { "label": "Google", "value": "google" }
       ],
-      "defaultValue": "google"
+      "defaultValue": "openai"
     },
     {
       "type": "select_with_search",
@@ -59,7 +69,7 @@
         { "label": "Gemini 2.5 Flash Lite", "value": "gemini-2.5-flash-lite" },
         { "label": "Gemini 2.5 Pro", "value": "gemini-2.5-pro" }
       ],
-      "defaultValue": "gemini-2.5-flash"
+      "defaultValue": "gpt-5-mini"
     },
     {
       "type": "text",
@@ -77,7 +87,7 @@
       "type": "toggle",
       "key": "use_same_for_vision",
       "label": "Use same provider for vision",
-      "defaultValue": true
+      "defaultValue": false
     },
     {
       "type": "select",
@@ -120,5 +130,22 @@
       "defaultValue": ""
     }
   ],
-  "tools": []
+  "tools": [],
+  "previewImages": [
+    {
+      "url": "https://mentra-store-cdn.mentraglass.com/mini_app_assets/com.clavionlabs.anyai/1771736816748-img_9171.png",
+      "orientation": "portrait",
+      "order": 0
+    },
+    {
+      "url": "https://mentra-store-cdn.mentraglass.com/mini_app_assets/com.clavionlabs.anyai/1771736817635-img_9172.png",
+      "orientation": "portrait",
+      "order": 1
+    },
+    {
+      "url": "https://mentra-store-cdn.mentraglass.com/mini_app_assets/com.clavionlabs.anyai/1771736818126-img_9173.png",
+      "orientation": "portrait",
+      "order": 2
+    }
+  ]
 }
