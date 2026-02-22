@@ -24,13 +24,15 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Conversational follow-up** — After the AI responds, the mic stays open for 10 seconds so you can ask follow-up questions without repeating the wake word
 - **Multi-provider** — Choose between OpenAI, Anthropic, or Google
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
-- **Vision** — Answers questions about what you're seeing (smart photo capture)
+- **Vision** — Answers questions about what you're seeing (smart photo capture with shutter sound feedback)
 - **Web search** — Real-time search with concise summaries via Jina
 - **Location services** — Nearby places, directions, weather, air quality, and pollen data (optional Google Cloud API key)
 - **Context aware** — Knows your location, time, weather, and conversation history
+- **Conversation persistence** — History hydrated from DB on session start; 8-hour context window covers a full working day
+- **Session resilience** — Survives network blips and idle socket timeouts with a 5-minute grace period; no "Welcome" replay on reconnect
 - **Timezone detection** — Auto-detects your timezone from GPS when the OS doesn't provide it
 - **Personalization** — Custom assistant name, wake word, and model selection per user
-- **Audio & visual feedback** — Green LED on wake word, audio cues for listening/processing states, personalized TTS welcome message
+- **Audio & visual feedback** — Green LED on wake word, shutter sound on photo capture, audio cues for listening/processing states, personalized TTS welcome message
 
 ## What Changed from Mentra AI 2
 
@@ -65,6 +67,10 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **Auth hardening** — All `/api/*` routes require verified `aos_session` cookie; no endpoint reads userId from query params
 - **Row Level Security** — RLS enabled on all Supabase tables for defense-in-depth
 - **Per-user Google Cloud key** — Location services (geocoding, weather, air quality, pollen, places, directions, timezone) use a per-user API key stored in Vault, with graceful fallbacks when unconfigured
+- **Session resilience** — `onStop()` uses soft disconnect with a 5-minute grace period instead of destroying user state immediately; glasses reconnects are seamless with no welcome replay
+- **Conversation hydration** — `ChatHistoryManager.initialize()` loads today's turns from DB on session start so prior context survives server restarts
+- **Vision error handling** — Failed photo captures return a clear user-facing error instead of sending a photoless query to the LLM
+- **TTS improvements** — Unit abbreviations (mph, km, ft, etc.) expanded before number-to-words conversion for correct speech output
 
 ### Supported Models
 
@@ -79,9 +85,9 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 ```
 src/
 ├── index.ts                          # Bun.serve + Hono entry point
-├── public/assets/audio/              # Audio cues (start, processing, welcome)
+├── public/assets/audio/              # Audio cues (start, processing, welcome, shutter)
 ├── server/
-│   ├── MentraAI.ts                   # AppServer lifecycle (onSession/onStop)
+│   ├── MentraAI.ts                   # AppServer lifecycle (onSession/onStop) with soft disconnect
 │   ├── agent/
 │   │   ├── MentraAgent.ts            # AI SDK generateText() wrapper
 │   │   ├── prompt.ts                 # Dynamic system prompt builder
@@ -114,6 +120,7 @@ src/
 ```
 User says wake word → Green LED flash → Start listening sound
   → User speaks query → Silence detected → Processing sound loops
+    → Visual query? → Shutter sound → Photo captured
     → AI generates response → TTS speaks response
       → Follow-up mode (green LED 2s, mic open 10s)
         → User speaks again (no wake word needed) → repeat
@@ -141,7 +148,7 @@ User says wake word → Green LED flash → Start listening sound
 2. Sign in and click "Create App"
 3. Set a unique package name (e.g., `com.yourName.anyAI`)
 4. Enter your ngrok URL as "Public URL"
-5. Add **microphone** and **camera** permissions
+5. Add permissions: **Microphone + Transcripts**, **Camera**, **Location**, **Read Notifications**, **Send Notifications**, **Calendar**
 
 ### Run It
 
