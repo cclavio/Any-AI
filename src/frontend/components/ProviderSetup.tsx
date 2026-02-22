@@ -59,7 +59,7 @@ function ProviderSection({
         style={{ backgroundColor: 'var(--primary-foreground)' }}
       >
         {/* Provider */}
-        <div className="flex items-center justify-between px-[16px] h-[48px]">
+        <div className="flex items-center justify-between px-[5px] h-[48px]">
           <span
             className="text-[16px] font-medium"
             style={{ color: 'var(--secondary-foreground)' }}
@@ -82,12 +82,12 @@ function ProviderSection({
         </div>
 
         <div
-          className="mx-[16px]"
+          className="mx-[5px]"
           style={{ borderBottom: '1px solid var(--border)' }}
         />
 
         {/* Model */}
-        <div className="flex items-center justify-between px-[16px] h-[48px]">
+        <div className="flex items-center justify-between px-[5px] h-[48px]">
           <span
             className="text-[16px] font-medium"
             style={{ color: 'var(--secondary-foreground)' }}
@@ -111,12 +111,12 @@ function ProviderSection({
         </div>
 
         <div
-          className="mx-[16px]"
+          className="mx-[5px]"
           style={{ borderBottom: '1px solid var(--border)' }}
         />
 
         {/* API Key */}
-        <div className="flex items-center gap-2 px-[16px] h-[48px]">
+        <div className="flex items-center gap-2 px-[5px] h-[48px]">
           <span
             className="text-[16px] font-medium shrink-0"
             style={{ color: 'var(--secondary-foreground)' }}
@@ -401,7 +401,7 @@ export default function ProviderSetup() {
           className="rounded-[16px] overflow-hidden"
           style={{ backgroundColor: 'var(--primary-foreground)' }}
         >
-          <div className="flex items-center justify-between px-[16px] h-[48px]">
+          <div className="flex items-center justify-between px-[5px] h-[48px]">
             <label
               className="text-[16px] font-medium"
               style={{ color: 'var(--secondary-foreground)' }}
@@ -418,10 +418,10 @@ export default function ProviderSetup() {
             />
           </div>
           <div
-            className="mx-[16px]"
+            className="mx-[5px]"
             style={{ borderBottom: '1px solid var(--border)' }}
           />
-          <div className="flex items-center justify-between px-[16px] h-[48px]">
+          <div className="flex items-center justify-between px-[5px] h-[48px]">
             <label
               className="text-[16px] font-medium"
               style={{ color: 'var(--secondary-foreground)' }}
@@ -527,7 +527,7 @@ export default function ProviderSetup() {
           style={{ backgroundColor: 'var(--primary-foreground)' }}
         >
           {/* Description */}
-          <div className="px-[16px] py-[12px]">
+          <div className="px-[5px] py-[12px]">
             <p
               className="text-[14px] leading-[22px]"
               style={{ color: 'var(--muted-foreground)' }}
@@ -537,12 +537,12 @@ export default function ProviderSetup() {
           </div>
 
           <div
-            className="mx-[16px]"
+            className="mx-[5px]"
             style={{ borderBottom: '1px solid var(--border)' }}
           />
 
           {/* API Key */}
-          <div className="flex items-center gap-2 px-[16px] h-[48px]">
+          <div className="flex items-center gap-2 px-[5px] h-[48px]">
             <span
               className="text-[16px] font-medium shrink-0"
               style={{ color: 'var(--secondary-foreground)' }}
@@ -601,10 +601,10 @@ export default function ProviderSetup() {
           {googleCloudKeySet && (
             <>
               <div
-                className="mx-[16px]"
+                className="mx-[5px]"
                 style={{ borderBottom: '1px solid var(--border)' }}
               />
-              <div className="flex items-center justify-between px-[16px] h-[48px]">
+              <div className="flex items-center justify-between px-[5px] h-[48px]">
                 <span
                   className="text-[16px] font-medium"
                   style={{ color: 'var(--secondary-foreground)' }}

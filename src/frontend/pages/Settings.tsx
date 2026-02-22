@@ -41,7 +41,7 @@ function Settings({
       }}
     >
       {/* Page Title */}
-      <div className="w-full px-[24px] pt-[24px] pb-[8px] text-center">
+      <div className="w-full px-[24px] py-[12px] text-center">
         <h1
           className="text-[22px] font-bold"
           style={{ color: 'var(--secondary-foreground)' }}
@@ -56,7 +56,7 @@ function Settings({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex-1 px-[24px] pt-[24px] space-y-3 overflow-y-auto"
+        className="flex-1 px-[24px] pt-0 pb-[24px] space-y-3 overflow-y-auto"
         style={{
           overscrollBehavior: 'none',
           WebkitOverflowScrolling: 'touch',
@@ -65,7 +65,7 @@ function Settings({
       >
         {/* How-to instructions */}
         <div
-          className="rounded-[16px] px-[16px] py-[14px]"
+          className="rounded-[16px] px-[5px] pt-0 pb-[14px]"
           style={{ backgroundColor: 'var(--primary-foreground)' }}
         >
           <p

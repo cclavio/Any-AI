@@ -9,6 +9,7 @@ import { createMentraAIServer } from "./server/MentraAI";
 import { api } from "./server/routes/routes";
 import { createMentraAuthRoutes, logger as sdkLogger } from "@mentra/sdk";
 import indexHtml from "./frontend/index.html";
+import devPreviewHtml from "./frontend/dev-preview.html";
 
 // The SDK hardcodes NODE_ENV="development" internally, flooding logs at DEBUG level.
 // Override to "info" in production to stay under Railway's 500 logs/sec rate limit.
@@ -82,11 +83,14 @@ Bun.serve({
     hmr: true,
     console: true,
   },
+  // @ts-ignore — Bun route types are strict about union shapes; /dev is dev-only
   routes: {
     // Serve the React frontend at root
     "/": indexHtml,
     "/webview": indexHtml,
     "/webview/*": indexHtml,
+    // Dev-only settings preview (no MentraOS auth required)
+    ...(isDevelopment && { "/dev": devPreviewHtml }),
   },
   fetch(request) {
     const url = new URL(request.url);
@@ -112,6 +116,7 @@ Bun.serve({
 
 if (isDevelopment) {
   console.log(`🔥 HMR enabled for development`);
+  console.log(`🎨 Dev preview: http://localhost:${PORT}/dev`);
 }
 console.log("");
 
