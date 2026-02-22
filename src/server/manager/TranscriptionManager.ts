@@ -61,7 +61,7 @@ export class TranscriptionManager {
   // Config
   private readonly SILENCE_TIMEOUT_MS = 1500;  // 1.5s silence = query complete
   private readonly MAX_LISTENING_MS = 15000;   // 15s max listening time
-  private readonly FOLLOW_UP_WINDOW_MS = 5000; // 5s window for follow-up questions
+  private readonly FOLLOW_UP_WINDOW_MS = 10000; // 10s window for follow-up questions
 
   // Callback for when query is ready
   private onQueryReady: OnQueryReadyCallback | null = null;
