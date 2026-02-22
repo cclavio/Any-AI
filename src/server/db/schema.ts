@@ -25,11 +25,11 @@ export const userSettings = pgTable("user_settings", {
 
   // Personalization
   agentName: text("agent_name").notNull().default("Any AI"),
-  wakeWord: text("wake_word").notNull().default("hey any ai"),
+  wakeWord: text("wake_word").notNull().default("hey jarvis"),
 
   // LLM provider config
-  llmProvider: text("llm_provider").default("google"),
-  llmModel: text("llm_model").default("gemini-2.5-flash"),
+  llmProvider: text("llm_provider").default("openai"),
+  llmModel: text("llm_model").default("gpt-5-mini"),
   llmApiKeyVaultId: text("llm_api_key_vault_id"),
 
   // Vision provider config (can differ from LLM)

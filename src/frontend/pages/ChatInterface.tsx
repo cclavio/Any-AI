@@ -165,10 +165,10 @@ function ChatInterface({ userId, recipientId, onEnableDebugMode }: ChatInterface
     return saved ? JSON.parse(saved) : false;
   });
   const [chatHistoryEnabled, setChatHistoryEnabled] = useState(false);
-  const [displayWakeWord, setDisplayWakeWord] = useState('Hey Any AI');
+  const [displayWakeWord, setDisplayWakeWord] = useState('Hey Jarvis');
   const [sessionActive, setSessionActive] = useState<boolean | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  const [currentPage, setCurrentPage] = useState<'chat' | 'settings'>('chat');
+  const [currentPage, setCurrentPage] = useState<'splash' | 'chat' | 'settings'>('splash');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const sseRef = useRef<EventSource | null>(null);
@@ -234,6 +234,13 @@ function ChatInterface({ userId, recipientId, onEnableDebugMode }: ChatInterface
         });
     }
   }, [userId]);
+
+  // Splash screen → auto-navigate to settings after 5 seconds
+  useEffect(() => {
+    if (currentPage !== 'splash') return;
+    const timer = setTimeout(() => setCurrentPage('settings'), 5000);
+    return () => clearTimeout(timer);
+  }, [currentPage]);
 
   // Set up SSE connection for real-time updates (with auto-reconnect)
   useEffect(() => {
@@ -352,6 +359,65 @@ function ChatInterface({ userId, recipientId, onEnableDebugMode }: ChatInterface
       sseRef.current?.close();
     };
   }, [userId, recipientId]);
+
+  // Render splash screen (5s then auto-navigate to settings)
+  if (currentPage === 'splash') {
+    return (
+      <div
+        className="h-screen flex flex-col items-center justify-center"
+        style={{ backgroundColor: 'var(--background)' }}
+      >
+        <div className="flex flex-col items-center">
+          <motion.div
+            initial={{ y: '5vh' }}
+            animate={{ y: 0 }}
+            transition={{ duration: 0.7, ease: [0.25, 0.1, 0.25, 1], delay: 0.3 }}
+            className="mb-[10px]"
+          >
+            <Lottie
+              animationData={MentraLogoAnimation}
+              loop={true}
+              autoplay={true}
+              className="w-[150px] h-[150px]"
+            />
+          </motion.div>
+          <h1 className="text-[20px] sm:text-4xl md:text-5xl lg:text-6xl font-semibold flex gap-[4px] justify-center">
+            {['Say', `"${displayWakeWord}"`].map((word, index) => (
+              <motion.span
+                key={index}
+                initial={{ opacity: 0, filter: 'blur(10px)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)' }}
+                transition={{
+                  duration: 0.5,
+                  ease: [0.25, 0.1, 0.25, 1],
+                  delay: 0.7 + index * 0.15,
+                }}
+                style={{ color: 'var(--secondary-foreground)' }}
+              >
+                {word}
+              </motion.span>
+            ))}
+          </h1>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1], delay: 1.15 }}
+            className="text-[14px] text-[#A3A3A3] mt-[8px]"
+          >
+            Then ask a question.
+          </motion.div>
+        </div>
+
+        {/* Gradient background */}
+        <div
+          className="fixed bottom-0 left-0 right-0 pointer-events-none flex justify-center"
+          style={{ height: '1000px', transform: 'translateY(660px)' }}
+        >
+          <MiraBackgroundAnimation />
+        </div>
+      </div>
+    );
+  }
 
   // Render Settings page if on settings
   if (currentPage === 'settings') {

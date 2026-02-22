@@ -128,8 +128,8 @@ export async function getProviderConfig(c: Context) {
     if (!isDbAvailable()) {
       return c.json({
         agentName: "Any AI",
-        wakeWord: "hey any ai",
-        llm: { provider: "google", model: "gemini-2.5-flash", isConfigured: false },
+        wakeWord: "hey jarvis",
+        llm: { provider: "openai", model: "gpt-5-mini", isConfigured: false },
         vision: { provider: "google", model: "gemini-2.5-flash", isConfigured: false },
       });
     }
@@ -142,8 +142,8 @@ export async function getProviderConfig(c: Context) {
     if (!settings) {
       return c.json({
         agentName: "Any AI",
-        wakeWord: "hey any ai",
-        llm: { provider: "google", model: "gemini-2.5-flash", isConfigured: false },
+        wakeWord: "hey jarvis",
+        llm: { provider: "openai", model: "gpt-5-mini", isConfigured: false },
         vision: { provider: "google", model: "gemini-2.5-flash", isConfigured: false },
       });
     }
@@ -152,8 +152,8 @@ export async function getProviderConfig(c: Context) {
       agentName: settings.agentName,
       wakeWord: settings.wakeWord,
       llm: {
-        provider: settings.llmProvider ?? "google",
-        model: settings.llmModel ?? "gemini-2.5-flash",
+        provider: settings.llmProvider ?? "openai",
+        model: settings.llmModel ?? "gpt-5-mini",
         isConfigured: !!settings.llmApiKeyVaultId,
       },
       vision: {
@@ -315,7 +315,7 @@ export async function deleteProviderConfig(c: Context) {
 
     // Clear settings fields
     const clearFields = purpose === "llm"
-      ? { llmProvider: "google", llmModel: "gemini-2.5-flash", llmApiKeyVaultId: null, isAiConfigured: false, updatedAt: new Date() }
+      ? { llmProvider: "openai", llmModel: "gpt-5-mini", llmApiKeyVaultId: null, isAiConfigured: false, updatedAt: new Date() }
       : { visionProvider: "google", visionModel: "gemini-2.5-flash", visionApiKeyVaultId: null, updatedAt: new Date() };
 
     await db

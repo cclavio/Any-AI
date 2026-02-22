@@ -78,10 +78,10 @@ export interface UserAIConfig {
 /** Default config for users who haven't configured yet (no API keys) */
 export const DEFAULT_AI_CONFIG: Omit<UserAIConfig, "llmApiKey" | "visionApiKey"> = {
   agentName: "Any AI",
-  wakeWord: "hey any ai",
-  llmProvider: "google",
-  llmModel: "gemini-2.5-flash",
-  llmModelName: "Gemini 2.5 Flash",
+  wakeWord: "hey jarvis",
+  llmProvider: "openai",
+  llmModel: "gpt-5-mini",
+  llmModelName: "GPT-5 Mini",
   visionProvider: "google",
   visionModel: "gemini-2.5-flash",
   isConfigured: false,

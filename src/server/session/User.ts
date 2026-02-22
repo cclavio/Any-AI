@@ -122,8 +122,8 @@ export class User {
       visionApiKey = (await getApiKey(settings.visionApiKeyVaultId)) ?? "";
     }
 
-    const llmProvider = (settings.llmProvider ?? "google") as UserAIConfig["llmProvider"];
-    const llmModel = settings.llmModel ?? "gemini-2.5-flash";
+    const llmProvider = (settings.llmProvider ?? "openai") as UserAIConfig["llmProvider"];
+    const llmModel = settings.llmModel ?? "gpt-5-mini";
     const visionProvider = (settings.visionProvider ?? "google") as UserAIConfig["visionProvider"];
 
     this.aiConfig = {
