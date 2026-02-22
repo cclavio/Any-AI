@@ -75,12 +75,18 @@ export class TranscriptionManager {
    * Wire up the transcription listener on the glasses session
    */
   setup(session: AppSession): void {
+    // Reset destroyed flag — critical for reconnect scenarios where
+    // destroy() was called during clearAppSession() before re-setup
+    this.destroyed = false;
+
     this.unsubscribe = session.events.onTranscription(
       (data: TranscriptionData) => {
         this.handleTranscription(data);
       },
     );
-    console.log(`🎤 TranscriptionManager ready for ${this.user.userId}`);
+
+    const wakeWord = this.user.aiConfig?.wakeWord ?? 'hey any ai';
+    console.log(`🎤 TranscriptionManager ready for ${this.user.userId} (wake word: "${wakeWord}")`);
   }
 
   /**
@@ -88,6 +94,11 @@ export class TranscriptionManager {
    */
   private async handleTranscription(data: TranscriptionData): Promise<void> {
     const { text, isFinal, speakerId } = data as TranscriptionData & { speakerId?: string };
+
+    // Log all transcription events for debugging (truncated to avoid log spam)
+    if (isFinal) {
+      console.log(`🎤 [STT] "${text.slice(0, 80)}" (final=${isFinal}, listening=${this.isListening}, processing=${this.isProcessing})`);
+    }
 
     // Broadcast to SSE clients
     this.broadcast(text, isFinal ?? false);

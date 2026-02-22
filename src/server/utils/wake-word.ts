@@ -79,24 +79,79 @@ export interface WakeWordResult {
 }
 
 /**
- * Detect if the text contains a wake word
+ * Strip punctuation and normalize whitespace for fuzzy wake word matching.
+ * STT often inserts commas, periods, or extra spaces (e.g., "Hey, Jarvis" for "Hey Jarvis").
+ */
+function normalizeForMatch(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')  // Remove all non-alphanumeric except spaces
+    .replace(/\s+/g, ' ')          // Collapse multiple spaces
+    .trim();
+}
+
+/**
+ * Detect if the text contains a wake word.
+ * Uses punctuation-stripped matching so STT variations like "Hey, Jarvis"
+ * still match a "Hey Jarvis" wake word.
+ *
  * @param text - The transcription text to check
  * @param customWakeWords - Optional custom wake words (from user settings)
  * @returns Detection result with the query text
  */
 export function detectWakeWord(text: string, customWakeWords?: string[]): WakeWordResult {
-  const lowerText = text.toLowerCase().trim();
-  const wakeWords = customWakeWords && customWakeWords.length > 0
-    ? customWakeWords
-    : DEFAULT_WAKE_WORDS;
+  // Include custom wake words AND default wake words as fallback
+  const wakeWords = [
+    ...(customWakeWords && customWakeWords.length > 0 ? customWakeWords : []),
+    ...DEFAULT_WAKE_WORDS,
+  ];
 
-  for (const wakeWord of wakeWords) {
-    const index = lowerText.indexOf(wakeWord.toLowerCase());
+  // Deduplicate (case-insensitive)
+  const seen = new Set<string>();
+  const uniqueWakeWords = wakeWords.filter(w => {
+    const key = w.toLowerCase().trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const normalizedText = normalizeForMatch(text);
+
+  for (const wakeWord of uniqueWakeWords) {
+    const normalizedWake = normalizeForMatch(wakeWord);
+    const index = normalizedText.indexOf(normalizedWake);
     if (index !== -1) {
+      // Find the approximate position in the original text to extract the query.
+      // Count how many normalized characters correspond to original characters.
+      const normalizedBefore = normalizedText.slice(0, index + normalizedWake.length);
+      let origCharsConsumed = 0;
+      let normPos = 0;
+      const lowerText = text.toLowerCase();
+
+      for (let i = 0; i < lowerText.length && normPos < normalizedBefore.length; i++) {
+        const ch = lowerText[i];
+        // Skip characters that normalizeForMatch would remove
+        if (/[^a-z0-9\s]/.test(ch)) {
+          origCharsConsumed = i + 1;
+          continue;
+        }
+        // Collapse whitespace
+        if (/\s/.test(ch)) {
+          if (normPos < normalizedBefore.length && normalizedBefore[normPos] === ' ') {
+            normPos++;
+          }
+          origCharsConsumed = i + 1;
+          continue;
+        }
+        if (ch === normalizedBefore[normPos]) {
+          normPos++;
+        }
+        origCharsConsumed = i + 1;
+      }
+
       // Extract everything after the wake word, stripping leading punctuation
-      let query = text.slice(index + wakeWord.length).trim();
-      // Remove leading punctuation (comma, period, etc.)
-      query = query.replace(/^[,.\s]+/, '').trim();
+      let query = text.slice(origCharsConsumed).trim();
+      query = query.replace(/^[,.\s!?;:]+/, '').trim();
       return {
         detected: true,
         query,
