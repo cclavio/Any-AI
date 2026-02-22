@@ -77,7 +77,7 @@ const publicPath = `${process.cwd()}/src/public/assets`;
 // Start Bun server with HMR support
 Bun.serve({
   port: PORT,
-  idleTimeout: 120, // 2 minutes for SSE connections
+  idleTimeout: 255, // Max allowed by Bun — glasses listen silently for long periods
   development: isDevelopment && {
     hmr: true,
     console: true,

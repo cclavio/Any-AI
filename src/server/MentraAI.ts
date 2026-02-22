@@ -190,7 +190,13 @@ export class MentraAI extends AppServer {
   }
 
   /**
-   * Called when a user closes the app or disconnects
+   * Called when a user closes the app or disconnects.
+   *
+   * Instead of destroying the User immediately, we clear the glasses
+   * session and start a grace period. If the glasses reconnect within
+   * the window (common after idle socket timeouts), the User object
+   * is still in the sessions Map so `onSession()` takes the fast
+   * reconnect path and skips the welcome message.
    */
   protected async onStop(
     sessionId: string,
@@ -199,7 +205,7 @@ export class MentraAI extends AppServer {
   ): Promise<void> {
     console.log(`👋 Any AI session ended for ${userId}: ${reason}`);
 
-    // Notify frontend BEFORE cleanup — chatClients is independent from sessions
+    // Notify frontend
     broadcastChatEvent(userId, {
       type: "session_ended",
       reason,
@@ -207,8 +213,8 @@ export class MentraAI extends AppServer {
     });
 
     try {
-      sessions.remove(userId);
-      console.log(`🗑️ Cleaned up session for ${userId}`);
+      // Clear the glasses connection but keep the User alive for reconnect
+      sessions.softDisconnect(userId);
     } catch (err) {
       console.error(`Error during session cleanup for ${userId}:`, err);
     }
