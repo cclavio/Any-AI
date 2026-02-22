@@ -13,7 +13,7 @@ import ColorMiraLogo from '../../public/figma-parth-assets/icons/color-mira-logo
 import Settings from './Settings';
 import Header from '../components/Header';
 import BottomHeader from '../components/BottomHeader';
-import { fetchUserSettings } from '../api/settings.api';
+import { fetchUserSettings, fetchProviderConfig } from '../api/settings.api';
 
 interface Message {
   id: string;
@@ -165,6 +165,7 @@ function ChatInterface({ userId, recipientId, onEnableDebugMode }: ChatInterface
     return saved ? JSON.parse(saved) : false;
   });
   const [chatHistoryEnabled, setChatHistoryEnabled] = useState(false);
+  const [displayWakeWord, setDisplayWakeWord] = useState('Hey Any AI');
   const [sessionActive, setSessionActive] = useState<boolean | null>(null);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [currentPage, setCurrentPage] = useState<'chat' | 'settings'>('chat');
@@ -206,7 +207,7 @@ function ChatInterface({ userId, recipientId, onEnableDebugMode }: ChatInterface
     }
   }, [isDarkMode]);
 
-  // Load user settings on mount
+  // Load user settings + provider config on mount
   useEffect(() => {
     if (userId) {
       fetchUserSettings()
@@ -215,6 +216,21 @@ function ChatInterface({ userId, recipientId, onEnableDebugMode }: ChatInterface
         })
         .catch((error) => {
           console.error('[ChatInterface] Failed to fetch user settings:', error);
+        });
+
+      fetchProviderConfig()
+        .then((config) => {
+          if (config.wakeWord) {
+            // Capitalize first letter of each word for display
+            const formatted = config.wakeWord
+              .split(' ')
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(' ');
+            setDisplayWakeWord(formatted);
+          }
+        })
+        .catch((error) => {
+          console.error('[ChatInterface] Failed to fetch provider config:', error);
         });
     }
   }, [userId]);
@@ -477,7 +493,7 @@ function ChatInterface({ userId, recipientId, onEnableDebugMode }: ChatInterface
                     />
                   </motion.div>
                   <h1 className="text-[20px] sm:text-4xl md:text-5xl lg:text-6xl font-semibold flex gap-[4px] justify-center">
-                    {['Say', '"Hey', 'Mentra"'].map((word, index) => (
+                    {['Say', `"${displayWakeWord}"`].map((word, index) => (
                       <motion.span
                         key={index}
                         initial={{ opacity: 0, filter: 'blur(10px)' }}

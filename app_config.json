@@ -2,7 +2,7 @@
   "name": "Any AI",
   "description": "A multi-provider, bring-your-own-key AI assistant for MentraOS smart glasses. Forked from Mentra AI 2 app",
   "version": "0.8.0",
-  "onboardingInstructions": "1. Add [any] AI as a background App. Make sure you remove the Mentra AI app from background apps so you don't have Any AI and Mentra AI running simultaneously.\n2. Tap Background Apps, and then the \"right\" arrow for the [any] AI app to configure your AI provider and model.\n3. Choose your provider and models for LLM and Vision (OpenAI, Anthropic, Google Gemini are all supported).\n4. Add your API key(s).\n5. Enjoy!",
+  "onboardingInstructions": "1. Add [any] AI as a background App. Make sure you remove the Mentra AI app from background apps so you don't have Any AI and Mentra AI running simultaneously.\n2. Tap Background Apps, then tap the [any] AI card to open the webview.\n3. Tap the gear icon to open Settings, then configure your AI provider, model, and API key.\n4. Enjoy!",
   "publicUrl": "https://any-ai-production.up.railway.app",
   "logoURL": "https://mentra-store-cdn.mentraglass.com/mini_app_assets/com.clavionlabs.anyai/1771730415158-any-ai-logo-2.png",
   "appType": "background",
@@ -12,124 +12,7 @@
       "description": "Access to microphone for voice input and audio processing"
     }
   ],
-  "settings": [
-    {
-      "type": "group",
-      "key": "group_personalization",
-      "label": "Personalization",
-      "title": "Personalization"
-    },
-    {
-      "type": "text",
-      "key": "agent_name",
-      "label": "Assistant Name",
-      "defaultValue": "Any AI"
-    },
-    {
-      "type": "text",
-      "key": "wake_word",
-      "label": "Wake Word",
-      "defaultValue": "Hey Jarvis"
-    },
-    {
-      "type": "group",
-      "key": "group_llm",
-      "label": "LLM Provider",
-      "title": "LLM Provider"
-    },
-    {
-      "type": "select",
-      "key": "llm_provider",
-      "label": "Provider",
-      "options": [
-        { "label": "OpenAI", "value": "openai" },
-        { "label": "Anthropic", "value": "anthropic" },
-        { "label": "Google", "value": "google" }
-      ],
-      "defaultValue": "openai"
-    },
-    {
-      "type": "select_with_search",
-      "key": "llm_model",
-      "label": "Model",
-      "options": [
-        { "label": "GPT-5.2", "value": "gpt-5.2" },
-        { "label": "GPT-5.1", "value": "gpt-5.1" },
-        { "label": "GPT-5", "value": "gpt-5" },
-        { "label": "GPT-5 Mini", "value": "gpt-5-mini" },
-        { "label": "GPT-4o", "value": "gpt-4o" },
-        { "label": "GPT-4o Mini", "value": "gpt-4o-mini" },
-        { "label": "GPT-4.1", "value": "gpt-4.1" },
-        { "label": "GPT-4.1 Mini", "value": "gpt-4.1-mini" },
-        { "label": "Claude Opus 4.6", "value": "claude-opus-4-6" },
-        { "label": "Claude Sonnet 4.6", "value": "claude-sonnet-4-6" },
-        { "label": "Claude Sonnet 4.5", "value": "claude-sonnet-4-5-20250929" },
-        { "label": "Claude Haiku 4.5", "value": "claude-haiku-4-5-20251001" },
-        { "label": "Gemini 2.5 Flash", "value": "gemini-2.5-flash" },
-        { "label": "Gemini 2.5 Flash Lite", "value": "gemini-2.5-flash-lite" },
-        { "label": "Gemini 2.5 Pro", "value": "gemini-2.5-pro" }
-      ],
-      "defaultValue": "gpt-5-mini"
-    },
-    {
-      "type": "text",
-      "key": "llm_api_key",
-      "label": "API Key",
-      "defaultValue": ""
-    },
-    {
-      "type": "group",
-      "key": "group_vision",
-      "label": "Vision",
-      "title": "Vision"
-    },
-    {
-      "type": "toggle",
-      "key": "use_same_for_vision",
-      "label": "Use same provider for vision",
-      "defaultValue": false
-    },
-    {
-      "type": "select",
-      "key": "vision_provider",
-      "label": "Vision Provider",
-      "options": [
-        { "label": "OpenAI", "value": "openai" },
-        { "label": "Anthropic", "value": "anthropic" },
-        { "label": "Google", "value": "google" }
-      ],
-      "defaultValue": "google"
-    },
-    {
-      "type": "select_with_search",
-      "key": "vision_model",
-      "label": "Vision Model",
-      "options": [
-        { "label": "GPT-5.2", "value": "gpt-5.2" },
-        { "label": "GPT-5.1", "value": "gpt-5.1" },
-        { "label": "GPT-5", "value": "gpt-5" },
-        { "label": "GPT-5 Mini", "value": "gpt-5-mini" },
-        { "label": "GPT-4o", "value": "gpt-4o" },
-        { "label": "GPT-4o Mini", "value": "gpt-4o-mini" },
-        { "label": "GPT-4.1", "value": "gpt-4.1" },
-        { "label": "GPT-4.1 Mini", "value": "gpt-4.1-mini" },
-        { "label": "Claude Opus 4.6", "value": "claude-opus-4-6" },
-        { "label": "Claude Sonnet 4.6", "value": "claude-sonnet-4-6" },
-        { "label": "Claude Sonnet 4.5", "value": "claude-sonnet-4-5-20250929" },
-        { "label": "Claude Haiku 4.5", "value": "claude-haiku-4-5-20251001" },
-        { "label": "Gemini 2.5 Flash", "value": "gemini-2.5-flash" },
-        { "label": "Gemini 2.5 Flash Lite", "value": "gemini-2.5-flash-lite" },
-        { "label": "Gemini 2.5 Pro", "value": "gemini-2.5-pro" }
-      ],
-      "defaultValue": "gemini-2.5-flash"
-    },
-    {
-      "type": "text",
-      "key": "vision_api_key",
-      "label": "Vision API Key",
-      "defaultValue": ""
-    }
-  ],
+  "settings": [],
   "tools": [],
   "previewImages": [
     {

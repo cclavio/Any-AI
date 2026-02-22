@@ -141,84 +141,17 @@ export class User {
   }
 
   /**
-   * Resolve AI config from MentraOS session settings (fallback when DB is not configured).
-   * Called after setAppSession when the session's CONNECTION_ACK has delivered settings.
+   * Reload AI config from Supabase (DB + Vault).
+   * Called after webview saves to refresh the live session immediately.
    */
-  resolveAIConfigFromSession(): void {
-    if (!this.appSession) return;
-
-    // If already configured via web UI (DB/Vault), keep that
-    if (this.aiConfig?.isConfigured) return;
-
-    // Try MentraOS session settings
-    const apiKey = this.appSession.settings.get<string>('llm_api_key', '');
-    if (!apiKey) return; // Not configured in MentraOS either
-
-    const provider = (this.appSession.settings.get<string>('llm_provider', 'google') ?? 'google') as UserAIConfig["llmProvider"];
-    const model = this.appSession.settings.get<string>('llm_model', 'gemini-2.5-flash') ?? 'gemini-2.5-flash';
-    const useSameForVision = this.appSession.settings.get<boolean>('use_same_for_vision', true);
-
-    this.aiConfig = {
-      agentName: this.appSession.settings.get<string>('agent_name', 'Any AI') ?? 'Any AI',
-      wakeWord: this.appSession.settings.get<string>('wake_word', 'hey any ai') ?? 'hey any ai',
-      llmProvider: provider,
-      llmModel: model,
-      llmModelName: getModelDisplayName(provider, model),
-      llmApiKey: apiKey,
-      visionProvider: useSameForVision
-        ? provider
-        : (this.appSession.settings.get<string>('vision_provider', 'google') ?? 'google') as UserAIConfig["visionProvider"],
-      visionModel: useSameForVision
-        ? model
-        : this.appSession.settings.get<string>('vision_model', 'gemini-2.5-flash') ?? 'gemini-2.5-flash',
-      visionApiKey: useSameForVision
-        ? apiKey
-        : this.appSession.settings.get<string>('vision_api_key', '') ?? '',
-      isConfigured: true,
-    };
-
-    // Debug: log vision config to diagnose saving issues
-    console.log(`📱 AI config resolved from MentraOS settings for ${this.userId} (${provider}/${model}) | vision: useSame=${useSameForVision}, visionProvider=${this.aiConfig.visionProvider}, visionKey=${this.aiConfig.visionApiKey ? `${this.aiConfig.visionApiKey.slice(0, 8)}...` : 'EMPTY'}`);
-  }
-
-  /**
-   * Update in-memory AI config from a MentraOS settings change.
-   * Called by the settings change listener in MentraAI.
-   */
-  updateAIConfigFromSettings(): void {
-    if (!this.appSession) return;
-
-    const apiKey = this.appSession.settings.get<string>('llm_api_key', '');
-    if (!apiKey) return;
-
-    const provider = (this.appSession.settings.get<string>('llm_provider', 'google') ?? 'google') as UserAIConfig["llmProvider"];
-    const model = this.appSession.settings.get<string>('llm_model', 'gemini-2.5-flash') ?? 'gemini-2.5-flash';
-    const useSameForVision = this.appSession.settings.get<boolean>('use_same_for_vision', true);
-
-    this.aiConfig = {
-      agentName: this.appSession.settings.get<string>('agent_name', 'Any AI') ?? 'Any AI',
-      wakeWord: this.appSession.settings.get<string>('wake_word', 'hey any ai') ?? 'hey any ai',
-      llmProvider: provider,
-      llmModel: model,
-      llmModelName: getModelDisplayName(provider, model),
-      llmApiKey: apiKey,
-      visionProvider: useSameForVision
-        ? provider
-        : (this.appSession.settings.get<string>('vision_provider', 'google') ?? 'google') as UserAIConfig["visionProvider"],
-      visionModel: useSameForVision
-        ? model
-        : this.appSession.settings.get<string>('vision_model', 'gemini-2.5-flash') ?? 'gemini-2.5-flash',
-      visionApiKey: useSameForVision
-        ? apiKey
-        : this.appSession.settings.get<string>('vision_api_key', '') ?? '',
-      isConfigured: true,
-    };
-
-    // Debug: log vision config to diagnose saving issues
-    const visionKey = useSameForVision
-      ? apiKey
-      : this.appSession.settings.get<string>('vision_api_key', '') ?? '';
-    console.log(`📱 AI config updated from MentraOS settings for ${this.userId} (${provider}/${model}) | vision: useSame=${useSameForVision}, visionProvider=${this.aiConfig.visionProvider}, visionKey=${visionKey ? `${visionKey.slice(0, 8)}...` : 'EMPTY'}`);
+  async reloadAIConfig(): Promise<void> {
+    if (!isDbAvailable()) return;
+    try {
+      await this.loadAIConfig();
+      console.log(`🔄 AI config reloaded for ${this.userId} (${this.aiConfig?.isConfigured ? 'configured' : 'not configured'})`);
+    } catch (error) {
+      console.warn(`Failed to reload AI config for ${this.userId}:`, error);
+    }
   }
 
   /** Wire up a glasses connection — sets up all event listeners */

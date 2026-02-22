@@ -11,6 +11,7 @@ import { db, isDbAvailable } from "../db/client";
 import { userSettings } from "../db/schema";
 import { storeApiKey, deleteApiKey } from "../db/vault";
 import { eq } from "drizzle-orm";
+import { sessions } from "../manager/SessionManager";
 import { MODEL_CATALOG, PROVIDER_DISPLAY_NAMES } from "../agent/providers/types";
 import type { Provider } from "../agent/providers/types";
 import { validateApiKey } from "../agent/providers/registry";
@@ -93,6 +94,9 @@ export async function updateSettings(c: Context) {
         .set({ ...updates, updatedAt: new Date() })
         .where(eq(userSettings.userId, userId))
         .returning();
+
+      // Refresh the live session's in-memory AI config
+      await sessions.get(userId)?.reloadAIConfig();
 
       return c.json(updated);
     }
@@ -233,6 +237,9 @@ export async function saveProviderConfig(c: Context) {
         .where(eq(userSettings.userId, userId));
     }
 
+    // Refresh the live session's in-memory AI config
+    await sessions.get(userId)?.reloadAIConfig();
+
     return c.json({ success: true, provider, model, purpose });
   } catch (error) {
     console.error("Error saving provider config:", error);
@@ -315,6 +322,9 @@ export async function deleteProviderConfig(c: Context) {
       .update(userSettings)
       .set(clearFields)
       .where(eq(userSettings.userId, userId));
+
+    // Refresh the live session's in-memory AI config
+    await sessions.get(userId)?.reloadAIConfig();
 
     return c.json({ success: true, purpose });
   } catch (error) {
