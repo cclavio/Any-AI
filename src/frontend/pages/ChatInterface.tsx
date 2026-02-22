@@ -209,7 +209,7 @@ function ChatInterface({ userId, recipientId, onEnableDebugMode }: ChatInterface
   // Load user settings on mount
   useEffect(() => {
     if (userId) {
-      fetchUserSettings(userId)
+      fetchUserSettings()
         .then((settings) => {
           setChatHistoryEnabled(settings.chatHistoryEnabled ?? false);
         })

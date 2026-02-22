@@ -49,7 +49,7 @@ export default function App() {
   // Sync theme with backend when user authenticates
   useEffect(() => {
     if (isAuthenticated && userId) {
-      fetch(`/api/settings?userId=${encodeURIComponent(userId)}`)
+      fetch('/api/settings', { credentials: 'include' })
         .then((res) => res.json())
         .then((data) => {
           if (data.theme === 'dark' || data.theme === 'light') {
@@ -67,7 +67,8 @@ export default function App() {
       fetch('/api/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, theme }),
+        credentials: 'include',
+        body: JSON.stringify({ theme }),
       }).catch(() => {});
     }
   }, [theme, isAuthenticated, userId]);

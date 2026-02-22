@@ -5,6 +5,7 @@ import SettingItem from '../ui/setting-item';
 import ToggleSwitch from '../ui/toggle-switch';
 import SimpleToggle from '../ui/simple-toggle';
 import { updateTheme, updateChatHistoryEnabled, fetchUserSettings } from '../api/settings.api';
+import ProviderSetup from '../components/ProviderSetup';
 
 interface SettingsProps {
   onBack: () => void;
@@ -64,7 +65,7 @@ function Settings({
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const settings = await fetchUserSettings(userId);
+        const settings = await fetchUserSettings();
         setChatHistoryEnabled(settings.chatHistoryEnabled ?? false);
       } catch (error) {
         console.error('Failed to load settings:', error);
@@ -81,7 +82,7 @@ function Settings({
     setChatHistoryEnabled(newValue);
 
     try {
-      await updateChatHistoryEnabled(userId, newValue);
+      await updateChatHistoryEnabled(newValue);
       console.log('Chat history setting synced:', newValue);
       onChatHistoryToggle?.(newValue);
     } catch (error) {
@@ -96,7 +97,7 @@ function Settings({
     onToggleDarkMode();
 
     try {
-      await updateTheme(userId, newTheme);
+      await updateTheme(newTheme);
       console.log('Theme synced:', newTheme);
     } catch (error) {
       console.error('Failed to update theme:', error);
@@ -161,6 +162,9 @@ function Settings({
           }
         />
         */}
+
+        {/* AI Provider Setup */}
+        <ProviderSetup />
 
         {/* Version Info */}
         <div className="pt-8 text-center">
