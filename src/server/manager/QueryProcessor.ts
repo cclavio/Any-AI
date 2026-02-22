@@ -83,6 +83,35 @@ export class QueryProcessor {
       }
     }
 
+    // If the query needed a photo but we couldn't get one, tell the user directly
+    // instead of sending a photoless query to the LLM (which gives a useless answer)
+    if (isVisual && photos.length === 0) {
+      this.stopProcessingSound();
+      const errorMsg = "Sorry, I couldn't capture a photo. Please make sure camera permission is enabled in the MentraOS app and try again.";
+      console.warn(`📸 Visual query failed — no photo available for ${this.user.userId}`);
+
+      broadcastChatEvent(this.user.userId, {
+        type: "message",
+        id: `user-${Date.now()}`,
+        senderId: this.user.userId,
+        recipientId: "mentra-ai",
+        content: query,
+        timestamp: new Date().toISOString(),
+      });
+      broadcastChatEvent(this.user.userId, {
+        type: "message",
+        id: `ai-${Date.now()}`,
+        senderId: "mentra-ai",
+        recipientId: this.user.userId,
+        content: errorMsg,
+        timestamp: new Date().toISOString(),
+      });
+      broadcastChatEvent(this.user.userId, { type: "idle" });
+
+      await this.outputResponse(errorMsg, hasSpeakers, hasDisplay);
+      return errorMsg;
+    }
+
     // Broadcast user message to frontend (with photo if available)
     broadcastChatEvent(this.user.userId, {
       type: "message",
