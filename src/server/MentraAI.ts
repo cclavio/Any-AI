@@ -8,6 +8,7 @@
 import { AppServer, AppSession } from "@mentra/sdk";
 import { sessions } from "./manager/SessionManager";
 import { broadcastChatEvent } from "./api/chat";
+import type { User } from "./session/User";
 
 const WELCOME_SOUND_URL = process.env.WELCOME_SOUND_URL;
 
@@ -43,6 +44,12 @@ export class MentraAI extends AppServer {
     if (existingUser) {
       console.log(`🔄 Reconnect for ${userId} (skipping welcome)`);
       existingUser.setAppSession(session);
+
+      // Resolve AI config from MentraOS settings (fallback if not configured via web UI)
+      existingUser.resolveAIConfigFromSession();
+
+      // Listen for settings changes from MentraOS companion app
+      this.setupSettingsListeners(session, existingUser);
 
       // Re-attach event listeners
       existingUser.transcription.setOnQueryReady(async (query, speakerId, prePhoto, isVisual) => {
@@ -98,6 +105,12 @@ export class MentraAI extends AppServer {
 
     // Wire up glasses session
     user.setAppSession(session);
+
+    // Resolve AI config from MentraOS settings (fallback if not configured via web UI)
+    user.resolveAIConfigFromSession();
+
+    // Listen for settings changes from MentraOS companion app
+    this.setupSettingsListeners(session, user);
 
     // Set up transcription callback for query processing
     user.transcription.setOnQueryReady(async (query, speakerId, prePhoto, isVisual) => {
@@ -159,6 +172,26 @@ export class MentraAI extends AppServer {
     });
 
     console.log(`✅ Any AI ready for ${userId}`);
+  }
+
+  /**
+   * Listen for AI config changes from MentraOS native settings.
+   * When the user changes provider, model, API key, etc. in the MentraOS
+   * companion app, update the in-memory AI config immediately.
+   */
+  private setupSettingsListeners(session: AppSession, user: User): void {
+    const settingsKeys = [
+      'agent_name', 'wake_word',
+      'llm_provider', 'llm_model', 'llm_api_key',
+      'use_same_for_vision',
+      'vision_provider', 'vision_model', 'vision_api_key',
+    ];
+
+    for (const key of settingsKeys) {
+      session.settings.onValueChange(key, () => {
+        user.updateAIConfigFromSettings();
+      });
+    }
   }
 
   /**

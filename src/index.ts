@@ -85,6 +85,13 @@ Bun.serve({
   fetch(request) {
     const url = new URL(request.url);
 
+    // Serve app_config.json for MentraOS settings discovery (no auth required)
+    if (url.pathname === "/app_config.json") {
+      return new Response(Bun.file("app_config.json"), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     // Serve static assets from /assets/
     if (url.pathname.startsWith("/assets/")) {
       const filePath = `${publicPath}${url.pathname.replace("/assets", "")}`;

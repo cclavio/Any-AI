@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://mentra-store-cdn.mentraglass.com/mini_app_assets/com.clavionlabs.anyai/1771708239272-any-ai-logo-1.png" alt="Any AI Logo" width="120" height="120" />
+  <img src="https://mentra-store-cdn.mentraglass.com/mini_app_assets/com.clavionlabs.anyai/1771730415158-any-ai-logo-2.png" alt="Any AI Logo" width="120" height="120" />
 </p>
 
 <h1 align="center">Any AI</h1>

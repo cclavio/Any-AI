@@ -1,0 +1,124 @@
+{
+  "name": "Any AI",
+  "description": "A multi-provider, bring-your-own-key AI assistant for MentraOS smart glasses",
+  "version": "1.0.0",
+  "settings": [
+    {
+      "type": "group",
+      "key": "group_personalization",
+      "label": "Personalization",
+      "title": "Personalization"
+    },
+    {
+      "type": "text",
+      "key": "agent_name",
+      "label": "Assistant Name",
+      "defaultValue": "Any AI"
+    },
+    {
+      "type": "text",
+      "key": "wake_word",
+      "label": "Wake Word",
+      "defaultValue": "hey any ai"
+    },
+    {
+      "type": "group",
+      "key": "group_llm",
+      "label": "LLM Provider",
+      "title": "LLM Provider"
+    },
+    {
+      "type": "select",
+      "key": "llm_provider",
+      "label": "Provider",
+      "options": [
+        { "label": "OpenAI", "value": "openai" },
+        { "label": "Anthropic", "value": "anthropic" },
+        { "label": "Google", "value": "google" }
+      ],
+      "defaultValue": "google"
+    },
+    {
+      "type": "select_with_search",
+      "key": "llm_model",
+      "label": "Model",
+      "options": [
+        { "label": "GPT-5.2", "value": "gpt-5.2" },
+        { "label": "GPT-5.1", "value": "gpt-5.1" },
+        { "label": "GPT-5", "value": "gpt-5" },
+        { "label": "GPT-5 Mini", "value": "gpt-5-mini" },
+        { "label": "GPT-4o", "value": "gpt-4o" },
+        { "label": "GPT-4o Mini", "value": "gpt-4o-mini" },
+        { "label": "GPT-4.1", "value": "gpt-4.1" },
+        { "label": "GPT-4.1 Mini", "value": "gpt-4.1-mini" },
+        { "label": "Claude Opus 4.6", "value": "claude-opus-4-6" },
+        { "label": "Claude Sonnet 4.6", "value": "claude-sonnet-4-6" },
+        { "label": "Claude Sonnet 4.5", "value": "claude-sonnet-4-5-20250929" },
+        { "label": "Claude Haiku 4.5", "value": "claude-haiku-4-5-20251001" },
+        { "label": "Gemini 2.5 Flash", "value": "gemini-2.5-flash" },
+        { "label": "Gemini 2.5 Flash Lite", "value": "gemini-2.5-flash-lite" },
+        { "label": "Gemini 2.5 Pro", "value": "gemini-2.5-pro" }
+      ],
+      "defaultValue": "gemini-2.5-flash"
+    },
+    {
+      "type": "text",
+      "key": "llm_api_key",
+      "label": "API Key",
+      "defaultValue": ""
+    },
+    {
+      "type": "group",
+      "key": "group_vision",
+      "label": "Vision",
+      "title": "Vision"
+    },
+    {
+      "type": "toggle",
+      "key": "use_same_for_vision",
+      "label": "Use same provider for vision",
+      "defaultValue": true
+    },
+    {
+      "type": "select",
+      "key": "vision_provider",
+      "label": "Vision Provider",
+      "options": [
+        { "label": "OpenAI", "value": "openai" },
+        { "label": "Anthropic", "value": "anthropic" },
+        { "label": "Google", "value": "google" }
+      ],
+      "defaultValue": "google"
+    },
+    {
+      "type": "select_with_search",
+      "key": "vision_model",
+      "label": "Vision Model",
+      "options": [
+        { "label": "GPT-5.2", "value": "gpt-5.2" },
+        { "label": "GPT-5.1", "value": "gpt-5.1" },
+        { "label": "GPT-5", "value": "gpt-5" },
+        { "label": "GPT-5 Mini", "value": "gpt-5-mini" },
+        { "label": "GPT-4o", "value": "gpt-4o" },
+        { "label": "GPT-4o Mini", "value": "gpt-4o-mini" },
+        { "label": "GPT-4.1", "value": "gpt-4.1" },
+        { "label": "GPT-4.1 Mini", "value": "gpt-4.1-mini" },
+        { "label": "Claude Opus 4.6", "value": "claude-opus-4-6" },
+        { "label": "Claude Sonnet 4.6", "value": "claude-sonnet-4-6" },
+        { "label": "Claude Sonnet 4.5", "value": "claude-sonnet-4-5-20250929" },
+        { "label": "Claude Haiku 4.5", "value": "claude-haiku-4-5-20251001" },
+        { "label": "Gemini 2.5 Flash", "value": "gemini-2.5-flash" },
+        { "label": "Gemini 2.5 Flash Lite", "value": "gemini-2.5-flash-lite" },
+        { "label": "Gemini 2.5 Pro", "value": "gemini-2.5-pro" }
+      ],
+      "defaultValue": "gemini-2.5-flash"
+    },
+    {
+      "type": "text",
+      "key": "vision_api_key",
+      "label": "Vision API Key",
+      "defaultValue": ""
+    }
+  ],
+  "tools": []
+}
