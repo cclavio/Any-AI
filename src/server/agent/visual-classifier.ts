@@ -1,15 +1,16 @@
 /**
  * Visual Query Classifier
  *
- * Direct Gemini API call (~200-300ms) that determines whether a user query
- * requires the camera photo to answer. Uses gemini-2.0-flash-lite for speed.
+ * Determines whether a user query requires the camera photo to answer.
+ * Uses the user's configured LLM provider for a fast, lightweight call (~200-300ms).
  *
- * No Mastra agent overhead — just a raw fetch to the Gemini REST API.
+ * Falls back to Gemini via env var if no user config, or returns false on error.
  */
 
-const GEMINI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-const MODEL = "gemini-2.0-flash-lite";
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+import { generateText } from "ai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { resolveLLMModel } from "./providers/registry";
+import type { UserAIConfig } from "./providers/types";
 
 const SYSTEM_PROMPT = `You classify queries from a user wearing smart glasses with a camera. The camera sees whatever the user is looking at.
 Answer ONLY "yes" or "no".
@@ -29,34 +30,42 @@ IMPORTANT — Say no for figurative/idiomatic language where visual words are us
 yes: "what is this?", "read that sign", "translate this text", "is that a good restaurant?" (looking at it), "how much does it cost?" (looking at product), "are those shoes on sale?", "what can you see?", "anything interesting around here?", "which one is better?" (comparing visible items)
 no: "where am I?", "what time is it?", "what's that smell?", "check this out", "I can see why that's popular", "can you look into that?", "that looks like a good deal", "how do I look?", "keep an eye on that", "let me see the options", "I see"`;
 
-
 /**
  * Classify whether a query requires visual context (photo from camera).
+ * Uses the user's configured LLM provider if available.
  * Returns false on error (defaults to fast path / non-visual).
  */
-export async function isVisualQuery(query: string): Promise<boolean> {
+export async function isVisualQuery(query: string, aiConfig?: UserAIConfig): Promise<boolean> {
   try {
-    const response = await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: "user", parts: [{ text: query }] }],
-        generationConfig: {
-          maxOutputTokens: 3,
-          temperature: 0,
-        },
-      }),
-    });
+    // Use AI SDK generateText with the user's configured model
+    if (aiConfig?.isConfigured) {
+      const model = resolveLLMModel(aiConfig);
+      const result = await generateText({
+        model,
+        system: SYSTEM_PROMPT,
+        prompt: query,
+        maxOutputTokens: 3,
+        temperature: 0,
+      });
+      return result.text.trim().toLowerCase().startsWith("yes");
+    }
 
-    if (!response.ok) {
-      console.warn(`Visual classifier HTTP ${response.status}`);
+    // Fallback: use env var Gemini key
+    const envKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    if (!envKey) {
+      console.warn("No AI config and no GOOGLE_GENERATIVE_AI_API_KEY — skipping visual classification");
       return false;
     }
 
-    const data = await response.json() as any;
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-    return text.trim().toLowerCase().startsWith("yes");
+    const google = createGoogleGenerativeAI({ apiKey: envKey });
+    const result = await generateText({
+      model: google("gemini-2.5-flash"),
+      system: SYSTEM_PROMPT,
+      prompt: query,
+      maxOutputTokens: 3,
+      temperature: 0,
+    });
+    return result.text.trim().toLowerCase().startsWith("yes");
   } catch (error) {
     console.warn("Visual classifier failed, defaulting to non-visual:", error);
     return false;

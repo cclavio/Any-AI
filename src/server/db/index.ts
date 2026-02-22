@@ -2,5 +2,6 @@
  * Database Exports
  */
 
-export * from './connection';
-export * from './schemas';
+export * from "./client";
+export * from "./schema";
+export * from "./vault";

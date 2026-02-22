@@ -1,4 +1,4 @@
-// API functions for user settings
+// API functions for user settings and provider configuration
 
 const getApiUrl = () => window.location.origin;
 
@@ -6,21 +6,42 @@ export interface UserSettings {
   userId: string;
   theme: 'light' | 'dark';
   chatHistoryEnabled: boolean;
+  agentName?: string;
+  wakeWord?: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
+export interface ProviderConfig {
+  agentName: string;
+  wakeWord: string;
+  llm: { provider: string; model: string; isConfigured: boolean };
+  vision: { provider: string; model: string; isConfigured: boolean };
+}
+
+export interface ModelInfo {
+  id: string;
+  name: string;
+  supportsVision: boolean;
+}
+
+export interface ProviderCatalogEntry {
+  name: string;
+  models: ModelInfo[];
+}
+
+export type ProviderCatalog = Record<string, ProviderCatalogEntry>;
+
+// ─── User Settings ───
+
 /**
  * Fetch user settings from the API
  */
-export const fetchUserSettings = async (userId: string): Promise<UserSettings> => {
-  const apiUrl = getApiUrl();
-  const response = await fetch(`${apiUrl}/api/settings?userId=${encodeURIComponent(userId)}`);
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch settings');
-  }
-
+export const fetchUserSettings = async (): Promise<UserSettings> => {
+  const response = await fetch(`${getApiUrl()}/api/settings`, {
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to fetch settings");
   return response.json();
 };
 
@@ -28,39 +49,108 @@ export const fetchUserSettings = async (userId: string): Promise<UserSettings> =
  * Update user settings (partial update)
  */
 export const updateUserSettings = async (
-  userId: string,
   updates: Partial<Omit<UserSettings, 'userId' | 'createdAt' | 'updatedAt'>>
 ): Promise<UserSettings> => {
-  const apiUrl = getApiUrl();
-  const response = await fetch(`${apiUrl}/api/settings`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, ...updates }),
+  const response = await fetch(`${getApiUrl()}/api/settings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(updates),
   });
-
-  if (!response.ok) {
-    throw new Error('Failed to update settings');
-  }
-
+  if (!response.ok) throw new Error("Failed to update settings");
   return response.json();
 };
 
 /**
  * Update only the theme setting
  */
-export const updateTheme = async (
-  userId: string,
-  theme: 'light' | 'dark'
-): Promise<UserSettings> => {
-  return updateUserSettings(userId, { theme });
+export const updateTheme = async (theme: 'light' | 'dark'): Promise<UserSettings> => {
+  return updateUserSettings({ theme });
 };
 
 /**
  * Update only the chatHistoryEnabled setting
  */
 export const updateChatHistoryEnabled = async (
-  userId: string,
   chatHistoryEnabled: boolean
 ): Promise<UserSettings> => {
-  return updateUserSettings(userId, { chatHistoryEnabled });
+  return updateUserSettings({ chatHistoryEnabled });
+};
+
+// ─── Provider Configuration ───
+
+/**
+ * Get current provider configuration (never includes API keys)
+ */
+export const fetchProviderConfig = async (): Promise<ProviderConfig> => {
+  const response = await fetch(`${getApiUrl()}/api/settings/provider`, {
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to fetch provider config");
+  return response.json();
+};
+
+/**
+ * Save provider configuration (validates key, stores in Vault)
+ */
+export const saveProviderConfig = async (params: {
+  purpose: "llm" | "vision";
+  provider: string;
+  model: string;
+  apiKey: string;
+}): Promise<{ success: boolean; error?: string }> => {
+  const response = await fetch(`${getApiUrl()}/api/settings/provider`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(params),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    return { success: false, error: data.error || "Failed to save provider config" };
+  }
+  return data;
+};
+
+/**
+ * Validate an API key without saving
+ */
+export const validateProviderKey = async (
+  provider: string,
+  apiKey: string
+): Promise<{ valid: boolean; provider: string }> => {
+  const response = await fetch(`${getApiUrl()}/api/settings/provider/validate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ provider, apiKey }),
+  });
+  if (!response.ok) throw new Error("Failed to validate API key");
+  return response.json();
+};
+
+/**
+ * Delete provider configuration and Vault secret
+ */
+export const deleteProviderConfig = async (
+  purpose: "llm" | "vision"
+): Promise<{ success: boolean }> => {
+  const response = await fetch(`${getApiUrl()}/api/settings/provider/${purpose}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to delete provider config");
+  return response.json();
+};
+
+/**
+ * Fetch the static model catalog (providers + models)
+ */
+export const fetchProviderCatalog = async (): Promise<ProviderCatalog> => {
+  const response = await fetch(`${getApiUrl()}/api/providers/catalog`, {
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to fetch provider catalog");
+  const data = await response.json();
+  return data.providers;
 };

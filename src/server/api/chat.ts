@@ -71,11 +71,11 @@ export function broadcastChatEvent(userId: string, event: {
  * Chat SSE stream endpoint
  */
 export async function chatStream(c: Context) {
-  const userId = c.req.query("userId");
+  const userId = c.get("authUserId") as string | undefined;
   const recipientId = c.req.query("recipientId");
 
   if (!userId) {
-    return c.json({ error: "userId is required" }, 400);
+    return c.json({ error: "Unauthorized" }, 401);
   }
 
   return streamSSE(c, async (stream) => {

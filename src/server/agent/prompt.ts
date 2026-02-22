@@ -8,14 +8,8 @@
 import { ResponseMode, WORD_LIMITS } from "../constants/config";
 import type { LocationContext } from "../manager/LocationManager";
 import type { ConversationTurn } from "../manager/ChatHistoryManager";
-import type { UserAIConfig } from "./MentraAgent";
-
-/** Display names for providers */
-const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-  openai: "OpenAI",
-  anthropic: "Anthropic",
-  google: "Google",
-};
+import type { UserAIConfig } from "./providers/types";
+import { PROVIDER_DISPLAY_NAMES } from "./providers/types";
 
 /**
  * Context passed to the prompt builder

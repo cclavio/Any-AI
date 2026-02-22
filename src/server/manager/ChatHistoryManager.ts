@@ -1,16 +1,20 @@
 /**
- * ChatHistoryManager - In-memory conversation history
+ * ChatHistoryManager - Conversation history with Drizzle persistence
  *
  * Features:
- * - In-memory storage of recent conversation turns
+ * - In-memory cache of recent conversation turns (for agent context)
+ * - Drizzle persistence to Supabase Postgres (for cross-session history)
  * - Photo data URLs stored alongside turns for frontend sync
  * - Configurable history window
  *
- * Note: MongoDB persistence is disabled for MVP. All data is in-memory only.
+ * Falls back to in-memory only when DATABASE_URL is not configured.
  */
 
 import type { User } from "../session/User";
 import { CONVERSATION_SETTINGS } from "../constants/config";
+import { db, isDbAvailable } from "../db/client";
+import { conversations, conversationTurns } from "../db/schema";
+import { eq, and } from "drizzle-orm";
 
 /**
  * A conversation turn for context
@@ -25,7 +29,7 @@ export interface ConversationTurn {
 
 /**
  * ChatHistoryManager — manages conversation history for a single user.
- * In-memory only for MVP — data survives page refresh but not server restart.
+ * Persists to Supabase Postgres via Drizzle when available, falls back to in-memory.
  */
 export class ChatHistoryManager {
   // In-memory store of recent turns
@@ -34,14 +38,14 @@ export class ChatHistoryManager {
   constructor(private user: User) {}
 
   /**
-   * Initialize the manager (no-op for in-memory only)
+   * Initialize the manager (no-op — Drizzle connects lazily)
    */
   async initialize(): Promise<void> {
-    // No DB operations for MVP
+    // Drizzle connects lazily on first query — nothing to do here
   }
 
   /**
-   * Add a conversation turn
+   * Add a conversation turn — writes to both memory and DB
    */
   async addTurn(query: string, response: string, hadPhoto: boolean = false, photoDataUrl?: string): Promise<void> {
     const turn: ConversationTurn = {
@@ -57,6 +61,34 @@ export class ChatHistoryManager {
     // Trim to max turns
     if (this.recentTurns.length > CONVERSATION_SETTINGS.maxTurns) {
       this.recentTurns = this.recentTurns.slice(-CONVERSATION_SETTINGS.maxTurns);
+    }
+
+    // Persist to DB if available
+    if (isDbAvailable()) {
+      try {
+        const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+        let [convo] = await db
+          .select()
+          .from(conversations)
+          .where(and(eq(conversations.userId, this.user.userId), eq(conversations.date, today)));
+
+        if (!convo) {
+          [convo] = await db
+            .insert(conversations)
+            .values({ userId: this.user.userId, date: today })
+            .returning();
+        }
+
+        await db.insert(conversationTurns).values({
+          conversationId: convo.id,
+          query,
+          response,
+          hadPhoto,
+        });
+      } catch (error) {
+        console.error("Failed to persist conversation turn:", error);
+        // In-memory turn was already added — don't throw
+      }
     }
   }
 
@@ -98,10 +130,36 @@ export class ChatHistoryManager {
   }
 
   /**
-   * Get conversation history by date (stub — returns empty for MVP)
+   * Get conversation history by date from DB
    */
   async getHistoryByDate(_date: Date): Promise<ConversationTurn[]> {
-    return [];
+    if (!isDbAvailable()) return [];
+
+    try {
+      const dateStr = _date.toISOString().split("T")[0];
+      const [convo] = await db
+        .select()
+        .from(conversations)
+        .where(and(eq(conversations.userId, this.user.userId), eq(conversations.date, dateStr)));
+
+      if (!convo) return [];
+
+      const turns = await db
+        .select()
+        .from(conversationTurns)
+        .where(eq(conversationTurns.conversationId, convo.id))
+        .orderBy(conversationTurns.timestamp);
+
+      return turns.map(t => ({
+        query: t.query,
+        response: t.response,
+        timestamp: t.timestamp,
+        hadPhoto: t.hadPhoto,
+      }));
+    } catch (error) {
+      console.error("Failed to fetch history by date:", error);
+      return [];
+    }
   }
 
   /**
@@ -122,7 +180,7 @@ export class ChatHistoryManager {
    * Update chat history enabled setting (in-memory flag only)
    */
   async setChatHistoryEnabled(_enabled: boolean): Promise<void> {
-    // No-op for MVP — always in-memory
+    // Persisted via user_settings table — this is a no-op here
   }
 
   /**

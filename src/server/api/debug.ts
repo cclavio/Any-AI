@@ -7,13 +7,13 @@ import { sessions } from "../manager/SessionManager";
 import { broadcastChatEvent } from "./chat";
 
 /**
- * POST /api/debug/kill-session?userId=<id>
+ * POST /api/debug/kill-session
  *
  * Simulates MentraAI.onStop() — broadcasts session_ended then removes user.
  */
 export async function killSession(c: Context) {
-  const userId = c.req.query("userId");
-  if (!userId) return c.json({ error: "userId is required" }, 400);
+  const userId = c.get("authUserId") as string | undefined;
+  if (!userId) return c.json({ error: "Unauthorized" }, 401);
 
   const user = sessions.get(userId);
   if (!user) return c.json({ error: `No session for ${userId}` }, 404);

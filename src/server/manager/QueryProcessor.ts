@@ -130,7 +130,7 @@ export class QueryProcessor {
     };
     lap('BUILD-CONTEXT');
 
-    // Step 5: Generate response
+    // Step 5: Generate response (pass user's AI config for multi-provider routing)
     this.showStatus("Thinking...", hasDisplay);
     let response: string;
     try {
@@ -138,6 +138,7 @@ export class QueryProcessor {
         query,
         photos: photos.length > 0 ? photos : undefined,
         context,
+        aiConfig: this.user.aiConfig,
         onToolCall: (toolName) => {
           if (toolName === 'search') {
             this.showStatus("Searching...", hasDisplay);

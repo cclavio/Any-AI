@@ -2,6 +2,7 @@ import type { AppSession, TranscriptionData } from "@mentra/sdk";
 import type { User } from "../session/User";
 import type { StoredPhoto } from "./PhotoManager";
 import { detectWakeWord, removeWakeWord } from "../utils/wake-word";
+import { isVisualQuery } from "../agent/visual-classifier";
 
 interface SSEWriter {
   write: (data: string) => void;
@@ -101,8 +102,9 @@ export class TranscriptionManager {
       return;
     }
 
-    // Check for wake word
-    const wakeResult = detectWakeWord(text);
+    // Check for wake word (use user's custom wake word if configured)
+    const customWakeWords = this.user.aiConfig?.wakeWord ? [this.user.aiConfig.wakeWord] : undefined;
+    const wakeResult = detectWakeWord(text, customWakeWords);
 
     if (!this.isListening) {
       // Not listening - look for wake word
@@ -121,8 +123,8 @@ export class TranscriptionManager {
       this.startListening(speakerId);
     }
 
-    // We're listening - accumulate transcript
-    this.currentTranscript = removeWakeWord(text);
+    // We're listening - accumulate transcript (strip user's custom wake word)
+    this.currentTranscript = removeWakeWord(text, customWakeWords);
     this.resetSilenceTimeout();
 
     // Show live transcription on display glasses HUD
@@ -148,18 +150,8 @@ export class TranscriptionManager {
     this.currentTranscript = '';
     this.transcriptionStartTime = Date.now();
 
-    // Capture photo NOW while user is still speaking (parallel with transcript accumulation)
-    const hasCamera = this.user.appSession?.capabilities?.hasCamera ?? false;
-    if (hasCamera) {
-      console.log(`📸 Pre-capturing photo at wake word for ${this.user.userId}`);
-      this.pendingPhoto = this.user.photo.takePhoto();
-    } else {
-      this.pendingPhoto = null;
-    }
-
-    // Play start listening sound
-    // NOTE: Don't do this because it interferes with the Mentra Live's camera's "snap" sound
-    //this.playStartSound();
+    // Photo capture deferred — will be taken only if isVisualQuery() says yes
+    this.pendingPhoto = null;
 
     // Start max listening timeout
     this.maxListeningTimeout = setTimeout(() => {
@@ -208,28 +200,40 @@ export class TranscriptionManager {
     const timeSinceWake = silenceDetectedAt - this.transcriptionStartTime;
     console.log(`⏱️ [SILENCE] Query ready: "${query}" (${timeSinceWake}ms since wake word)`);
 
-    // Always wait for the pre-captured photo (no classifier — always include it)
+    // Classify query: does it need a photo?
+    const hasCamera = this.user.appSession?.capabilities?.hasCamera ?? false;
+    let isVisual = false;
     let prePhoto: StoredPhoto | null = null;
-    if (this.pendingPhoto) {
-      const photoWaitStart = Date.now();
+
+    if (hasCamera) {
       try {
-        prePhoto = await this.pendingPhoto;
+        isVisual = await isVisualQuery(query, this.user.aiConfig);
+        console.log(`🔍 Visual classification: ${isVisual ? 'YES' : 'NO'} for "${query.slice(0, 40)}..."`);
       } catch (error) {
-        console.warn('Pre-captured photo failed:', error);
+        console.warn('Visual classification failed, defaulting to no photo:', error);
       }
-      this.pendingPhoto = null;
-      console.log(`⏱️ [PHOTO-AWAIT] ${Date.now() - photoWaitStart}ms | photo=${prePhoto ? 'yes' : 'no'}`);
+
+      // Only take photo if the query requires vision
+      if (isVisual) {
+        console.log(`📸 Taking photo for visual query: ${this.user.userId}`);
+        try {
+          prePhoto = await this.user.photo.takePhoto();
+        } catch (error) {
+          console.warn('Photo capture failed:', error);
+        }
+        console.log(`⏱️ [PHOTO-CAPTURE] photo=${prePhoto ? 'yes' : 'no'}`);
+      }
     }
 
-    // Bail if session destroyed during photo wait
+    // Bail if session destroyed during classification/photo
     if (this.destroyed) {
-      console.log(`🛑 Session destroyed during photo await for ${this.user.userId}, aborting`);
+      console.log(`🛑 Session destroyed during processing for ${this.user.userId}, aborting`);
       return;
     }
 
     try {
       if (this.onQueryReady) {
-        await this.onQueryReady(query, this.activeSpeakerId, prePhoto);
+        await this.onQueryReady(query, this.activeSpeakerId, prePhoto, isVisual);
       }
     } catch (error) {
       console.error('Error processing query:', error);

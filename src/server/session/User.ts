@@ -8,6 +8,12 @@ import { LocationManager } from "../manager/LocationManager";
 import { NotificationManager } from "../manager/NotificationManager";
 import { ChatHistoryManager } from "../manager/ChatHistoryManager";
 import { QueryProcessor } from "../manager/QueryProcessor";
+import type { UserAIConfig } from "../agent/providers/types";
+import { DEFAULT_AI_CONFIG, getModelDisplayName } from "../agent/providers/types";
+import { db, isDbAvailable } from "../db/client";
+import { userSettings } from "../db/schema";
+import { getApiKey } from "../db/vault";
+import { eq } from "drizzle-orm";
 
 /**
  * User — per-user state container.
@@ -33,6 +39,9 @@ export class User {
   get isCameraGlasses(): boolean {
     return this.glassesModel !== GLASSES_MODELS.EVEN_REALITIES_G1;
   }
+
+  /** User's AI configuration (loaded from DB + Vault on init) */
+  aiConfig: UserAIConfig | undefined = undefined;
 
   /** Photo capture, storage, and SSE broadcasting */
   photo: PhotoManager;
@@ -74,11 +83,61 @@ export class User {
   }
 
   /**
-   * Initialize async components (database connections, etc.)
+   * Initialize async components — loads AI config from DB + Vault
    */
   async initialize(): Promise<void> {
     await this.chatHistory.initialize();
-    console.log(`✅ User ${this.userId} initialized`);
+
+    // Load AI config from Supabase if available
+    if (isDbAvailable()) {
+      try {
+        await this.loadAIConfig();
+      } catch (error) {
+        console.warn(`Failed to load AI config for ${this.userId}:`, error);
+      }
+    }
+
+    console.log(`✅ User ${this.userId} initialized (aiConfig: ${this.aiConfig?.isConfigured ? 'configured' : 'not configured'})`);
+  }
+
+  /**
+   * Load AI configuration from user_settings + Vault
+   */
+  private async loadAIConfig(): Promise<void> {
+    const [settings] = await db
+      .select()
+      .from(userSettings)
+      .where(eq(userSettings.userId, this.userId));
+
+    if (!settings) return;
+
+    // Decrypt API keys from Vault
+    let llmApiKey = "";
+    let visionApiKey = "";
+
+    if (settings.llmApiKeyVaultId) {
+      llmApiKey = (await getApiKey(settings.llmApiKeyVaultId)) ?? "";
+    }
+    if (settings.visionApiKeyVaultId) {
+      visionApiKey = (await getApiKey(settings.visionApiKeyVaultId)) ?? "";
+    }
+
+    const llmProvider = (settings.llmProvider ?? "google") as UserAIConfig["llmProvider"];
+    const llmModel = settings.llmModel ?? "gemini-2.5-flash";
+    const visionProvider = (settings.visionProvider ?? "google") as UserAIConfig["visionProvider"];
+
+    this.aiConfig = {
+      agentName: settings.agentName,
+      wakeWord: settings.wakeWord,
+      llmProvider,
+      llmModel,
+      llmModelName: getModelDisplayName(llmProvider, llmModel),
+      llmApiKey,
+      visionProvider,
+      visionModel: settings.visionModel ?? "gemini-2.5-flash",
+      visionApiKey,
+      isConfigured: settings.isAiConfigured,
+    };
   }
 
   /** Wire up a glasses connection — sets up all event listeners */

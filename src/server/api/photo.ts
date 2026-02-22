@@ -3,9 +3,9 @@ import { sessions } from "../manager/SessionManager";
 
 /** GET /latest-photo — metadata for the most recent photo */
 export function getLatestPhoto(c: Context) {
-  const userId = c.req.query("userId");
+  const userId = c.get("authUserId") as string | undefined;
 
-  if (!userId) return c.json({ error: "userId is required" }, 400);
+  if (!userId) return c.json({ error: "Unauthorized" }, 401);
 
   const user = sessions.get(userId);
   if (!user) return c.json({ error: "No photos available for this user" }, 404);
@@ -27,9 +27,9 @@ export function getLatestPhoto(c: Context) {
 /** GET /photo/:requestId — raw photo image data */
 export function getPhotoData(c: Context) {
   const requestId = c.req.param("requestId");
-  const userId = c.req.query("userId");
+  const userId = c.get("authUserId") as string | undefined;
 
-  if (!userId) return c.json({ error: "userId is required" }, 400);
+  if (!userId) return c.json({ error: "Unauthorized" }, 401);
 
   const user = sessions.get(userId);
   const photo = user?.photo.getPhoto(requestId);
@@ -52,9 +52,9 @@ export function getPhotoData(c: Context) {
 /** GET /photo-base64/:requestId — photo as base64 JSON */
 export function getPhotoBase64(c: Context) {
   const requestId = c.req.param("requestId");
-  const userId = c.req.query("userId");
+  const userId = c.get("authUserId") as string | undefined;
 
-  if (!userId) return c.json({ error: "userId is required" }, 400);
+  if (!userId) return c.json({ error: "Unauthorized" }, 401);
 
   const user = sessions.get(userId);
   const photo = user?.photo.getPhoto(requestId);

@@ -3,10 +3,11 @@ import { sessions } from "../manager/SessionManager";
 
 /** POST /speak — text-to-speech on the glasses */
 export async function speak(c: Context) {
-  const { text, userId } = await c.req.json();
+  const userId = c.get("authUserId") as string | undefined;
+  const { text } = await c.req.json();
 
+  if (!userId) return c.json({ error: "Unauthorized" }, 401);
   if (!text) return c.json({ error: "text is required" }, 400);
-  if (!userId) return c.json({ error: "userId is required" }, 400);
 
   const user = sessions.get(userId);
   if (!user?.appSession) {
@@ -23,9 +24,9 @@ export async function speak(c: Context) {
 
 /** POST /stop-audio — stop audio playback */
 export async function stopAudio(c: Context) {
-  const { userId } = await c.req.json();
+  const userId = c.get("authUserId") as string | undefined;
 
-  if (!userId) return c.json({ error: "userId is required" }, 400);
+  if (!userId) return c.json({ error: "Unauthorized" }, 401);
 
   const user = sessions.get(userId);
   if (!user?.appSession) {

@@ -3,9 +3,9 @@ import { sessions } from "../manager/SessionManager";
 
 /** GET /theme-preference */
 export async function getThemePreference(c: Context) {
-  const userId = c.req.query("userId");
+  const userId = c.get("authUserId") as string | undefined;
 
-  if (!userId) return c.json({ error: "userId is required" }, 400);
+  if (!userId) return c.json({ error: "Unauthorized" }, 401);
 
   const user = sessions.get(userId);
   if (!user?.appSession) {
@@ -22,9 +22,10 @@ export async function getThemePreference(c: Context) {
 
 /** POST /theme-preference */
 export async function setThemePreference(c: Context) {
-  const { userId, theme } = await c.req.json();
+  const userId = c.get("authUserId") as string | undefined;
+  const { theme } = await c.req.json();
 
-  if (!userId) return c.json({ error: "userId is required" }, 400);
+  if (!userId) return c.json({ error: "Unauthorized" }, 401);
   if (!theme || (theme !== "dark" && theme !== "light")) {
     return c.json({ error: 'theme must be "dark" or "light"' }, 400);
   }

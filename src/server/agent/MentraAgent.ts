@@ -1,49 +1,24 @@
 /**
  * Any AI Agent — Main AI agent using Vercel AI SDK
  *
- * Replaces Mastra Agent with AI SDK generateText().
- * Accepts UserAIConfig for multi-provider model resolution.
+ * Uses AI SDK generateText() with multi-provider model resolution.
+ * Accepts UserAIConfig for per-user provider/model selection.
  */
 
 import { generateText, stepCountIs } from "ai";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { LanguageModel } from "ai";
 import { searchTool, calculatorTool, thinkingTool } from "./tools";
 import { buildSystemPrompt, classifyResponseMode, type AgentContext } from "./prompt";
 import { ResponseMode, AGENT_SETTINGS } from "../constants/config";
+import { resolveLLMModel } from "./providers/registry";
+import type { UserAIConfig } from "./providers/types";
+import { DEFAULT_AI_CONFIG, getModelDisplayName } from "./providers/types";
 import type { LocationContext } from "../manager/LocationManager";
 import type { ConversationTurn } from "../manager/ChatHistoryManager";
 
-/**
- * Temporary UserAIConfig type for Phase 1.
- * Will be replaced by providers/types.ts in Phase 3.
- */
-export interface UserAIConfig {
-  agentName: string;
-  wakeWord: string;
-  llmProvider: string;
-  llmModel: string;
-  llmModelName: string;
-  llmApiKey: string;
-  visionProvider: string;
-  visionModel: string;
-  visionApiKey: string;
-  isConfigured: boolean;
-}
-
-/** Default config used when no user config is available (Phase 1 shim) */
-export const DEFAULT_AI_CONFIG: UserAIConfig = {
-  agentName: "Any AI",
-  wakeWord: "hey any ai",
-  llmProvider: "google",
-  llmModel: "gemini-2.5-flash",
-  llmModelName: "Gemini 2.5 Flash",
-  llmApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || "",
-  visionProvider: "google",
-  visionModel: "gemini-2.5-flash",
-  visionApiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY || "",
-  isConfigured: !!process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-};
+// Re-export for consumers
+export type { UserAIConfig } from "./providers/types";
+export { DEFAULT_AI_CONFIG } from "./providers/types";
 
 /**
  * Content part for multimodal messages
@@ -85,25 +60,26 @@ export interface GenerateResult {
 }
 
 /**
- * Temporary model resolver for Phase 1.
- * Will be replaced by providers/registry.ts in Phase 3.
+ * Build a complete UserAIConfig with env var fallback for development.
+ * Returns null if no config and no env vars available.
  */
-function resolveModel(config: UserAIConfig): LanguageModel {
-  // Phase 1: Only Google provider is supported as a shim
-  // Phase 3 will add the full ProviderRegistry with OpenAI/Anthropic/Google
-  if (config.llmApiKey) {
-    const google = createGoogleGenerativeAI({ apiKey: config.llmApiKey });
-    return google(config.llmModel);
+function resolveConfig(aiConfig?: UserAIConfig): UserAIConfig | null {
+  if (aiConfig && aiConfig.isConfigured) {
+    return aiConfig;
   }
 
-  // Fallback: use env var key
+  // Development fallback: use env var if available
   const envKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   if (envKey) {
-    const google = createGoogleGenerativeAI({ apiKey: envKey });
-    return google("gemini-2.5-flash");
+    return {
+      ...DEFAULT_AI_CONFIG,
+      llmApiKey: envKey,
+      visionApiKey: envKey,
+      isConfigured: true,
+    };
   }
 
-  throw new Error("No API key configured. Please set up a provider in Settings.");
+  return null;
 }
 
 /**
@@ -111,7 +87,14 @@ function resolveModel(config: UserAIConfig): LanguageModel {
  */
 export async function generateResponse(options: GenerateOptions): Promise<GenerateResult> {
   const { query, photos, context, aiConfig } = options;
-  const config = aiConfig || DEFAULT_AI_CONFIG;
+  const config = resolveConfig(aiConfig);
+
+  if (!config) {
+    return {
+      response: "I'm not set up yet. Please go to Settings and configure your AI provider with an API key.",
+      toolCalls: 0,
+    };
+  }
 
   // Classify response mode
   const responseMode = classifyResponseMode(query, context.hasDisplay);
@@ -133,8 +116,17 @@ export async function generateResponse(options: GenerateOptions): Promise<Genera
     aiConfig: config,
   };
 
-  // Resolve AI SDK model from config
-  const model = resolveModel(config);
+  // Resolve AI SDK model via ProviderRegistry
+  let model: LanguageModel;
+  try {
+    model = resolveLLMModel(config);
+  } catch (error) {
+    console.error("Failed to resolve LLM model:", error);
+    return {
+      response: "There's an issue with your AI provider configuration. Please check your settings.",
+      toolCalls: 0,
+    };
+  }
 
   // Build content array
   const content: ContentPart[] = [
