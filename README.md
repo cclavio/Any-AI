@@ -18,14 +18,88 @@
 
 ## What It Does
 
-Any AI is an intelligent voice assistant for smart glasses. It adapts to your hardware—whether your glasses have a HUD display, camera, or speakers—and delivers responses in the most appropriate format.
+Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts to your hardware — whether your glasses have a HUD display, camera, or speakers — and delivers responses in the most appropriate format.
 
 - **Voice activation** — Say "Hey Any AI" to start (customizable wake word)
 - **Multi-provider** — Choose between OpenAI, Anthropic, or Google
-- **Bring your own key** — Use your own API keys, stored securely
-- **Vision** — Answers questions about what you're seeing (camera glasses)
-- **Web search** — Real-time search with concise summaries
+- **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
+- **Vision** — Answers questions about what you're seeing (smart photo capture)
+- **Web search** — Real-time search with concise summaries via Jina
 - **Context aware** — Knows your location, time, weather, and conversation history
+- **Personalization** — Custom assistant name, wake word, and model selection per user
+
+## What Changed from Mentra AI 2
+
+Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) with significant architectural changes:
+
+### Multi-Provider AI (was single-provider Gemini only)
+
+| | Mentra AI 2 | Any AI |
+|---|---|---|
+| **Providers** | Google Gemini only | OpenAI, Anthropic, Google |
+| **API keys** | Single server env var | Per-user, encrypted in Supabase Vault |
+| **Model selection** | Hardcoded | User picks from model catalog in Settings |
+| **Vision provider** | Same as LLM | Independently configurable |
+
+### Framework Swap
+
+| | Mentra AI 2 | Any AI |
+|---|---|---|
+| **AI framework** | Mastra (`@mastra/core`) | Vercel AI SDK (`ai`, `@ai-sdk/*`) |
+| **Database** | MongoDB / Mongoose | PostgreSQL / Drizzle ORM / Supabase |
+| **Secret storage** | Plaintext in DB | Supabase Vault (pgsodium encryption) |
+| **Auth** | `?userId=` query params | SDK cookie auth (`aos_session`) on all routes |
+| **Deployment** | Porter | Railway (Docker) |
+
+### Key Technical Changes
+
+- **Agent rewrite** — Replaced `@mastra/core` `Agent` class with direct `generateText()` calls from Vercel AI SDK
+- **Tool conversion** — Mastra `createTool()` → AI SDK `tool()` (search, calculator, thinking tools)
+- **Provider registry** — `ProviderRegistry` resolves `UserAIConfig` → AI SDK `LanguageModel` at runtime
+- **Smart photo capture** — `isVisualQuery()` classifier determines if camera photo is needed before taking one
+- **Dynamic identity** — System prompt reflects user's chosen assistant name, model, and provider
+- **Auth hardening** — All `/api/*` routes require verified `aos_session` cookie; no endpoint reads userId from query params
+
+### Supported Models
+
+| Provider | Models |
+|----------|--------|
+| **OpenAI** | GPT-5.2, GPT-5.1, GPT-5, GPT-5 Mini, GPT-4o, GPT-4o Mini, GPT-4.1, GPT-4.1 Mini |
+| **Anthropic** | Claude Opus 4.6, Claude Sonnet 4.6, Claude Sonnet 4.5, Claude Haiku 4.5 |
+| **Google** | Gemini 2.5 Flash, Gemini 2.5 Flash Lite, Gemini 2.5 Pro |
+
+## Architecture
+
+```
+src/
+├── index.ts                          # Bun.serve + Hono entry point
+├── server/
+│   ├── MentraAI.ts                   # AppServer lifecycle (onSession/onStop)
+│   ├── agent/
+│   │   ├── MentraAgent.ts            # AI SDK generateText() wrapper
+│   │   ├── prompt.ts                 # Dynamic system prompt builder
+│   │   ├── providers/
+│   │   │   ├── types.ts              # UserAIConfig, MODEL_CATALOG, Provider
+│   │   │   ├── registry.ts           # ProviderRegistry (resolve config → model)
+│   │   │   └── vision.ts             # Multi-provider vision API
+│   │   └── tools/                    # AI SDK tool definitions
+│   ├── db/
+│   │   ├── client.ts                 # Drizzle + postgres connection
+│   │   ├── schema.ts                 # user_settings, conversations, turns
+│   │   └── vault.ts                  # Supabase Vault helpers (store/retrieve/delete)
+│   ├── manager/
+│   │   ├── ChatHistoryManager.ts     # Drizzle-based conversation persistence
+│   │   ├── QueryProcessor.ts         # Query pipeline (transcription → agent → TTS)
+│   │   └── TranscriptionManager.ts   # Wake word + smart photo capture
+│   ├── routes/routes.ts              # Hono routes + SDK auth middleware
+│   ├── api/settings.ts               # Settings + provider config handlers
+│   └── session/User.ts               # Per-user state + aiConfig from DB/Vault
+└── frontend/
+    ├── App.tsx                       # React app with routing
+    ├── pages/Settings.tsx            # Settings page
+    ├── components/ProviderSetup.tsx   # Provider config UI
+    └── api/settings.api.ts           # Frontend API client
+```
 
 ## Supported Glasses
 
@@ -54,14 +128,16 @@ Any AI is an intelligent voice assistant for smart glasses. It adapts to your ha
 
 ```bash
 # Install
-git clone https://github.com/mentra-anyai/Any-AI.git
+git clone https://github.com/cclavio/Any-AI.git
 cd Any-AI
 bun install
 cp .env.example .env
 
 # Configure .env with your credentials
 # PORT, PACKAGE_NAME, MENTRAOS_API_KEY (required)
-# GOOGLE_MAPS_API_KEY (optional, for location features)
+# DATABASE_URL (required — Supabase Postgres connection string)
+# JINA_API_KEY (optional, for web search)
+# COOKIE_SECRET (required — for auth cookie signing)
 
 # Start
 bun run dev
@@ -69,6 +145,20 @@ bun run dev
 # Expose via ngrok
 ngrok http --url=<YOUR_NGROK_URL> 3000
 ```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `PORT` | No | Server port (default: 3000) |
+| `PACKAGE_NAME` | Yes | MentraOS package identifier |
+| `MENTRAOS_API_KEY` | Yes | SDK authentication key from Developer Console |
+| `DATABASE_URL` | Yes | Supabase Postgres connection string |
+| `COOKIE_SECRET` | Yes | Secret for signing auth cookies |
+| `JINA_API_KEY` | No | Jina API key for web search tool |
+| `GOOGLE_MAPS_API_KEY` | No | For geocoding / location features |
+
+Individual AI provider API keys (OpenAI, Anthropic, Google) are **not** server env vars — they are stored per-user in Supabase Vault and entered via the Settings UI.
 
 ## Documentation
 
