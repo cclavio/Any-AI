@@ -42,8 +42,9 @@ export class InputManager {
         return;
       }
 
-      // Quick press — take a photo
-      // await this.user.photo.takePhoto();
+      // Single short press → activate listening
+      console.log(`[Button] ${this.user.userId}: press → activate listening`);
+      this.user.transcription.activateListening();
     });
   }
 

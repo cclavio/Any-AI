@@ -8,6 +8,7 @@ import { LocationManager } from "../manager/LocationManager";
 import { NotificationManager } from "../manager/NotificationManager";
 import { ChatHistoryManager } from "../manager/ChatHistoryManager";
 import { QueryProcessor } from "../manager/QueryProcessor";
+import { DeviceCommandHandler } from "../manager/DeviceCommandHandler";
 import type { UserAIConfig } from "../agent/providers/types";
 import { DEFAULT_AI_CONFIG, getModelDisplayName } from "../agent/providers/types";
 import { db, isDbAvailable } from "../db/client";
@@ -70,6 +71,9 @@ export class User {
   /** Query processing pipeline */
   queryProcessor: QueryProcessor;
 
+  /** Hardware device command executor (photo capture, etc.) */
+  deviceCommand: DeviceCommandHandler;
+
   constructor(public readonly userId: string) {
     this.photo = new PhotoManager(this);
     this.transcription = new TranscriptionManager(this);
@@ -80,6 +84,7 @@ export class User {
     this.notifications = new NotificationManager(this);
     this.chatHistory = new ChatHistoryManager(this);
     this.queryProcessor = new QueryProcessor(this);
+    this.deviceCommand = new DeviceCommandHandler(this);
   }
 
   /**

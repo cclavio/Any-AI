@@ -51,6 +51,11 @@ export class MentraAI extends AppServer {
         await existingUser.queryProcessor.processQuery(query, speakerId, prePhoto, isVisual);
       });
 
+      existingUser.transcription.setOnDeviceCommand(async (command) => {
+        const response = await existingUser.deviceCommand.execute(command);
+        await session.audio.speak(response).catch(() => {});
+      });
+
       session.events.onLocation((locationData) => {
         existingUser.location.updateCoordinates(locationData.lat, locationData.lng);
       });
@@ -104,6 +109,12 @@ export class MentraAI extends AppServer {
     // Set up transcription callback for query processing
     user.transcription.setOnQueryReady(async (query, speakerId, prePhoto, isVisual) => {
       await user.queryProcessor.processQuery(query, speakerId, prePhoto, isVisual);
+    });
+
+    // Set up device command callback (e.g. "take a photo" → camera roll)
+    user.transcription.setOnDeviceCommand(async (command) => {
+      const response = await user.deviceCommand.execute(command);
+      await session.audio.speak(response).catch(() => {});
     });
 
     // Wire up location updates

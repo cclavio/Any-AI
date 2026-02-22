@@ -3,6 +3,7 @@ import type { User } from "../session/User";
 import type { StoredPhoto } from "./PhotoManager";
 import { detectWakeWord, removeWakeWord } from "../utils/wake-word";
 import { isVisualQuery } from "../agent/visual-classifier";
+import { classifyDeviceCommand, type DeviceCommand } from "../agent/device-commands";
 import { getDefaultSoundUrl } from "../constants/config";
 
 interface SSEWriter {
@@ -16,6 +17,12 @@ interface SSEWriter {
  * Includes pre-captured photo (taken at wake word time) and visual classification.
  */
 export type OnQueryReadyCallback = (query: string, speakerId?: string, prePhoto?: StoredPhoto | null, isVisual?: boolean) => Promise<void>;
+
+/**
+ * Callback for when a device command (e.g. "take a photo") is detected.
+ * Called instead of onQueryReady — short-circuits the AI pipeline.
+ */
+export type OnDeviceCommandCallback = (command: DeviceCommand) => Promise<void>;
 
 /**
  * TranscriptionManager — handles speech-to-text, wake word detection,
@@ -66,6 +73,9 @@ export class TranscriptionManager {
   // Callback for when query is ready
   private onQueryReady: OnQueryReadyCallback | null = null;
 
+  // Callback for device commands (short-circuits AI pipeline)
+  private onDeviceCommand: OnDeviceCommandCallback | null = null;
+
   // Session disconnect safety — prevents zombie query processing
   private destroyed = false;
 
@@ -79,6 +89,14 @@ export class TranscriptionManager {
    */
   setOnQueryReady(callback: OnQueryReadyCallback): void {
     this.onQueryReady = callback;
+  }
+
+  /**
+   * Set the callback for device commands (e.g. "take a photo").
+   * When a device command is detected, this fires instead of onQueryReady.
+   */
+  setOnDeviceCommand(callback: OnDeviceCommandCallback): void {
+    this.onDeviceCommand = callback;
   }
 
   /**
@@ -244,6 +262,24 @@ export class TranscriptionManager {
     const silenceDetectedAt = Date.now();
     const timeSinceWake = silenceDetectedAt - this.transcriptionStartTime;
     console.log(`⏱️ [SILENCE] Query ready: "${query}" (${timeSinceWake}ms since wake word)`);
+
+    // Check for device commands (e.g. "take a photo") — short-circuit AI pipeline
+    const deviceCmd = classifyDeviceCommand(query);
+    if (deviceCmd && this.onDeviceCommand) {
+      console.log(`🎛️ Device command detected: ${deviceCmd.type} for "${query}"`);
+      try {
+        await this.onDeviceCommand(deviceCmd);
+      } catch (error) {
+        console.error("Error executing device command:", error);
+      } finally {
+        if (!this.destroyed) {
+          this.enterFollowUpMode();
+        } else {
+          this.resetState();
+        }
+      }
+      return;
+    }
 
     // Classify query: does it need a photo?
     const hasCamera = !(this.user.appSession?.capabilities?.hasDisplay ?? false);
@@ -435,6 +471,20 @@ export class TranscriptionManager {
         console.debug('Start listening sound failed:', err);
       });
     }
+  }
+
+  /**
+   * Manually activate listening mode (e.g. from a double-tap gesture).
+   * Equivalent to hearing the wake word — plays the start sound,
+   * flashes the LED, and begins accumulating the next utterance.
+   */
+  activateListening(): void {
+    // Ignore if already listening or processing
+    if (this.isListening || this.isProcessing) return;
+
+    console.log(`🎤 [MANUAL] Listening activated for ${this.user.userId}`);
+    this.flashWakeLed();
+    this.startListening();
   }
 
   /**

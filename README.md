@@ -20,8 +20,9 @@
 
 Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts to your hardware — whether your glasses have a HUD display, camera, or speakers — and delivers responses in the most appropriate format.
 
-- **Voice activation** — Say "Hey Any AI" to start (customizable wake word)
+- **Voice activation** — Say "Hey Any AI" to start (customizable wake word), or single-press the action button
 - **Conversational follow-up** — After the AI responds, the mic stays open for 10 seconds so you can ask follow-up questions without repeating the wake word
+- **Voice commands** — Say "take a photo" to capture and save a photo to your camera roll (bypasses the AI pipeline for instant response)
 - **Multi-provider** — Choose between OpenAI, Anthropic, or Google
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
 - **Vision** — Answers questions about what you're seeing (smart photo capture with shutter sound feedback)
@@ -33,6 +34,7 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Timezone detection** — Auto-detects your timezone from GPS when the OS doesn't provide it
 - **Personalization** — Custom assistant name, wake word, and model selection per user
 - **Audio & visual feedback** — Green LED on wake word, shutter sound on photo capture, audio cues for listening/processing states, personalized TTS welcome message
+- **Hardware button** — Single press the action button to activate the listener (no wake word needed)
 
 ## What Changed from Mentra AI 2
 
@@ -63,6 +65,8 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **Tool conversion** — Mastra `createTool()` → AI SDK `tool()` (search, calculator, thinking, nearby places, directions)
 - **Provider registry** — `ProviderRegistry` resolves `UserAIConfig` → AI SDK `LanguageModel` at runtime
 - **Smart photo capture** — `isVisualQuery()` classifier determines if camera photo is needed before taking one
+- **Voice-activated photo capture** — "Take a photo" voice command saves directly to camera roll via device command classifier, bypassing the AI pipeline
+- **Single-press listener** — Action button changed from double-press to single press for faster activation
 - **Dynamic identity** — System prompt reflects user's chosen assistant name, model, and provider
 - **Auth hardening** — All `/api/*` routes require verified `aos_session` cookie; no endpoint reads userId from query params
 - **Row Level Security** — RLS enabled on all Supabase tables for defense-in-depth
@@ -90,6 +94,7 @@ src/
 │   ├── MentraAI.ts                   # AppServer lifecycle (onSession/onStop) with soft disconnect
 │   ├── agent/
 │   │   ├── MentraAgent.ts            # AI SDK generateText() wrapper
+│   │   ├── device-commands.ts        # Regex-based device command classifier (photo capture, etc.)
 │   │   ├── prompt.ts                 # Dynamic system prompt builder
 │   │   ├── providers/
 │   │   │   ├── types.ts              # UserAIConfig, MODEL_CATALOG, Provider
@@ -102,9 +107,10 @@ src/
 │   │   └── vault.ts                  # Supabase Vault helpers (store/retrieve/delete)
 │   ├── manager/
 │   │   ├── ChatHistoryManager.ts     # Drizzle-based conversation persistence
+│   │   ├── DeviceCommandHandler.ts   # Hardware command executor (photo capture → camera roll)
 │   │   ├── LocationManager.ts        # GPS, geocoding, weather, air quality, pollen, timezone
 │   │   ├── QueryProcessor.ts         # Query pipeline (transcription → agent → TTS)
-│   │   └── TranscriptionManager.ts   # Wake word, follow-up mode, audio/LED feedback
+│   │   └── TranscriptionManager.ts   # Wake word, device commands, follow-up mode, audio/LED feedback
 │   ├── routes/routes.ts              # Hono routes + SDK auth middleware
 │   ├── api/settings.ts               # Settings + provider config handlers
 │   └── session/User.ts               # Per-user state + aiConfig from DB/Vault
@@ -118,13 +124,17 @@ src/
 ## Interaction Flow
 
 ```
-User says wake word → Green LED flash → Start listening sound
-  → User speaks query → Silence detected → Processing sound loops
-    → Visual query? → Shutter sound → Photo captured
-    → AI generates response → TTS speaks response
-      → Follow-up mode (green LED 2s, mic open 10s)
-        → User speaks again (no wake word needed) → repeat
-        → Silence for 10s → return to idle (wake word required)
+Wake word OR single-press action button → Green LED flash → Start listening sound
+  → User speaks query → Silence detected
+    → Device command? (e.g. "take a photo")
+      → Shutter sound → Photo saved to camera roll → Speaks "Photo saved"
+      → Follow-up mode (no AI call)
+    → Normal query? → Processing sound loops
+      → Visual query? → Shutter sound → Photo captured for AI context
+      → AI generates response → TTS speaks response
+        → Follow-up mode (green LED 2s, mic open 10s)
+          → User speaks again (no wake word needed) → repeat
+          → Silence for 10s → return to idle (wake word required)
 ```
 
 ## Supported Glasses
