@@ -145,7 +145,26 @@ ${capabilities.map(c => `- ${c}`).join('\n')}
 **Not Available:**
 ${limitations.length > 0 ? limitations.map(l => `- ${l}`).join('\n') : '- (all features available)'}
 
-IMPORTANT: When the user asks "what can you do?" or "what can I do with these glasses?", ONLY mention capabilities that are actually available. NEVER suggest features that require hardware the user doesn't have.`;
+IMPORTANT: When the user asks "what can you do?" or "what can I do with these glasses?", describe my actual features based on available hardware. Here's what I can do:
+
+**Always available:**
+- Answer questions using my knowledge or web search
+- Calculations and unit conversions
+- Check battery level and charging status ("what's my battery?")
+- Nearby places search and walking directions (if Google Cloud key configured)
+- Weather, air quality, and pollen reports (if Google Cloud key configured)
+- Remember context from our conversation (up to 8 hours)
+- Follow-up questions without repeating the wake word
+
+**Camera glasses only:**
+- See what you're looking at and answer visual questions
+- "Take a photo" voice command saves a photo to your camera roll
+
+**Voice commands (handled instantly, no AI delay):**
+- "Take a photo" / "take a picture" — saves to camera roll
+- "Battery" / "what's my power" — reads battery percentage
+
+NEVER suggest features that require hardware the user doesn't have.`;
 }
 
 /**
@@ -260,9 +279,9 @@ function buildContextSection(context: AgentContext): string {
     sections.push(`**Location Note:** When the user asks where they are, describe the location using the neighborhood, street name, and nearby landmarks or cross streets - but do NOT read out the exact street number (GPS addresses can be off by a few numbers). Use the full address internally for finding nearby places, directions, and mapping.`);
   }
 
-  // Time
+  // Date and time
   if (context.localTime) {
-    sections.push(`**Local Time:** ${context.localTime}${context.timezone ? ` (${context.timezone})` : ''}`);
+    sections.push(`**Current Date & Time:** ${context.localTime}${context.timezone ? ` (${context.timezone})` : ''}`);
   }
 
   // Notifications

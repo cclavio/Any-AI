@@ -141,8 +141,8 @@ export class QueryProcessor {
       lap('LOCATION-FETCH');
     }
 
-    // Step 3: Get local time
-    const localTime = this.getLocalTime();
+    // Step 3: Get local date and time
+    const localTime = this.getLocalDateTime();
 
     // Step 4: Build agent context (using snapshotted capabilities from pipeline start)
     const hasPhotos = photoDataUrl !== undefined; // current query's photo, not stale ones
@@ -262,9 +262,9 @@ export class QueryProcessor {
   }
 
   /**
-   * Get local time string
+   * Get local date and time string
    */
-  private getLocalTime(): string {
+  private getLocalDateTime(): string {
     // Use timezone (available even before geocoding, set from SDK settings or GPS auto-detect)
     const timezone = this.user.location.getTimezone();
 
@@ -275,6 +275,10 @@ export class QueryProcessor {
     try {
       const now = new Date();
       const options: Intl.DateTimeFormatOptions = {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
@@ -284,11 +288,15 @@ export class QueryProcessor {
         options.timeZone = timezone;
       }
 
-      const timeStr = now.toLocaleTimeString("en-US", options);
-      console.log(`🕐 Local time for ${this.user.userId}: ${timeStr} (tz=${timezone ?? 'server-default'})`);
-      return timeStr;
+      const dateTimeStr = now.toLocaleString("en-US", options);
+      console.log(`🕐 Local date/time for ${this.user.userId}: ${dateTimeStr} (tz=${timezone ?? 'server-default'})`);
+      return dateTimeStr;
     } catch {
-      return new Date().toLocaleTimeString("en-US", {
+      return new Date().toLocaleString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
