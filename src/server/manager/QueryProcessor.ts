@@ -10,8 +10,9 @@ import type { StoredPhoto } from "./PhotoManager";
 import { generateResponse, type GenerateOptions } from "../agent/MentraAgent";
 import { broadcastChatEvent } from "../api/chat";
 import { formatForTTS } from "../utils/tts-formatter";
+import { getDefaultSoundUrl } from "../constants/config";
 
-const PROCESSING_SOUND_URL = process.env.PROCESSING_SOUND_URL;
+const PROCESSING_SOUND_URL = process.env.PROCESSING_SOUND_URL || getDefaultSoundUrl('processing.mp3');
 
 /**
  * QueryProcessor — handles the full query processing pipeline.

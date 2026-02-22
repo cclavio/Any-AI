@@ -177,7 +177,8 @@ export class User {
       isConfigured: true,
     };
 
-    console.log(`📱 AI config resolved from MentraOS settings for ${this.userId} (${provider}/${model})`);
+    // Debug: log vision config to diagnose saving issues
+    console.log(`📱 AI config resolved from MentraOS settings for ${this.userId} (${provider}/${model}) | vision: useSame=${useSameForVision}, visionProvider=${this.aiConfig.visionProvider}, visionKey=${this.aiConfig.visionApiKey ? `${this.aiConfig.visionApiKey.slice(0, 8)}...` : 'EMPTY'}`);
   }
 
   /**
@@ -213,7 +214,11 @@ export class User {
       isConfigured: true,
     };
 
-    console.log(`📱 AI config updated from MentraOS settings for ${this.userId} (${provider}/${model})`);
+    // Debug: log vision config to diagnose saving issues
+    const visionKey = useSameForVision
+      ? apiKey
+      : this.appSession.settings.get<string>('vision_api_key', '') ?? '';
+    console.log(`📱 AI config updated from MentraOS settings for ${this.userId} (${provider}/${model}) | vision: useSame=${useSameForVision}, visionProvider=${this.aiConfig.visionProvider}, visionKey=${visionKey ? `${visionKey.slice(0, 8)}...` : 'EMPTY'}`);
   }
 
   /** Wire up a glasses connection — sets up all event listeners */

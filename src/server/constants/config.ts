@@ -66,3 +66,15 @@ export const AGENT_SETTINGS = {
   // Maximum tool call iterations
   maxSteps: 5,
 };
+
+/**
+ * Resolve a default sound URL from the app's public URL.
+ * Glasses need an absolute URL to fetch audio files.
+ * Falls back to null if PUBLIC_URL is not configured.
+ */
+export function getDefaultSoundUrl(filename: string): string | null {
+  const publicUrl = process.env.PUBLIC_URL;
+  if (!publicUrl) return null;
+  const base = publicUrl.replace(/\/$/, '');
+  return `${base}/assets/audio/${filename}`;
+}

@@ -9,8 +9,9 @@ import { AppServer, AppSession } from "@mentra/sdk";
 import { sessions } from "./manager/SessionManager";
 import { broadcastChatEvent } from "./api/chat";
 import type { User } from "./session/User";
+import { getDefaultSoundUrl } from "./constants/config";
 
-const WELCOME_SOUND_URL = process.env.WELCOME_SOUND_URL;
+const WELCOME_SOUND_URL = process.env.WELCOME_SOUND_URL || getDefaultSoundUrl('welcome.mp3');
 
 export interface MentraAIConfig {
   packageName: string;
@@ -188,7 +189,11 @@ export class MentraAI extends AppServer {
     ];
 
     for (const key of settingsKeys) {
-      session.settings.onValueChange(key, () => {
+      session.settings.onValueChange(key, (newValue) => {
+        const safeValue = key.includes('api_key') && newValue
+          ? `${String(newValue).slice(0, 8)}...`
+          : newValue;
+        console.log(`⚙️ [SETTINGS] ${key} changed → ${safeValue} for ${user.userId}`);
         user.updateAIConfigFromSettings();
       });
     }

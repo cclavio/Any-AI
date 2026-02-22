@@ -3,6 +3,7 @@ import type { User } from "../session/User";
 import type { StoredPhoto } from "./PhotoManager";
 import { detectWakeWord, removeWakeWord } from "../utils/wake-word";
 import { isVisualQuery } from "../agent/visual-classifier";
+import { getDefaultSoundUrl } from "../constants/config";
 
 interface SSEWriter {
   write: (data: string) => void;
@@ -160,6 +161,9 @@ export class TranscriptionManager {
     this.activeSpeakerId = speakerId;
     this.currentTranscript = '';
     this.transcriptionStartTime = Date.now();
+
+    // Play "start listening" audio cue
+    this.playStartSound();
 
     // Photo capture deferred — will be taken only if isVisualQuery() says yes
     this.pendingPhoto = null;
@@ -329,7 +333,7 @@ export class TranscriptionManager {
    * Play the start listening sound
    */
   private playStartSound(): void {
-    const soundUrl = process.env.START_LISTENING_SOUND_URL;
+    const soundUrl = process.env.START_LISTENING_SOUND_URL || getDefaultSoundUrl('start.mp3');
     if (soundUrl && this.user.appSession) {
       this.user.appSession.audio.playAudio({ audioUrl: soundUrl }).catch((err) => {
         console.debug('Start listening sound failed:', err);
