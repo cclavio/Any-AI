@@ -87,6 +87,7 @@ export class DeviceCommandHandler {
       filename: photo.filename,
       mimeType: photo.mimeType,
       sizeBytes: photo.size,
+      saved: true,
       capturedAt: photo.timestamp,
     });
 

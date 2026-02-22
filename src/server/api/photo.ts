@@ -55,6 +55,9 @@ export async function getPhotoData(c: Context) {
       .limit(1);
 
     if (row && row.userId === userId) {
+      if (!row.storagePath) {
+        return c.json({ error: "Photo has no stored image (analysis-only)" }, 404);
+      }
       const { buffer, contentType } = await downloadPhoto(row.storagePath);
       return new Response(new Uint8Array(buffer), {
         headers: { "Content-Type": contentType, "Cache-Control": "no-cache" },
@@ -104,6 +107,9 @@ export async function getPhotoBase64(c: Context) {
       .limit(1);
 
     if (row && row.userId === userId) {
+      if (!row.storagePath) {
+        return c.json({ error: "Photo has no stored image (analysis-only)" }, 404);
+      }
       const { buffer } = await downloadPhoto(row.storagePath);
       const base64Data = buffer.toString("base64");
       return c.json({

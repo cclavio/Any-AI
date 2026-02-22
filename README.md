@@ -26,7 +26,7 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Multi-provider** — Choose between OpenAI, Anthropic, or Google
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
 - **Vision** — Answers questions about what you're seeing (smart photo capture with shutter sound feedback)
-- **Photo persistence** — Photos from "take a photo" are stored in Supabase Storage with metadata in Postgres, surviving server restarts
+- **Photo persistence** — All photos are logged to Postgres; voice command photos ("take a photo") are also uploaded to Supabase Storage, while visual query photos are analysis-only with the LLM response stored alongside. Conversation turns link to their photo via FK.
 - **Web search** — Real-time search with concise summaries via Jina
 - **Location services** — Nearby places, directions, weather, air quality, and pollen data (optional Google Cloud API key)
 - **Battery check** — Ask "what's my battery?" for instant glasses battery level and charging status
@@ -69,6 +69,7 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **Provider registry** — `ProviderRegistry` resolves `UserAIConfig` → AI SDK `LanguageModel` at runtime
 - **Smart photo capture** — `isVisualQuery()` classifier determines if camera photo is needed before taking one
 - **Voice-activated photo capture** — "Take a photo" voice command saves directly to camera roll via device command classifier, bypassing the AI pipeline
+- **Photo linking** — Every photo (voice command or visual query) gets a `photos` row; conversation turns reference their photo via `photo_id` FK. Voice command photos are marked `saved: true` with Storage upload; visual query photos are `saved: false` with the LLM's `analysis` stored after response
 - **Battery voice command** — "What's my battery?" reads glasses battery level and charging status instantly via device state API
 - **Calendar integration** — `CalendarManager` receives events via `onCalendarEvent`, persists to generic `user_context` table, hydrates on reconnect, and injects schedule into AI context
 - **Dynamic date context** — LLM receives the current date and time (not just time), so date-related questions are always accurate

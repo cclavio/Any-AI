@@ -11,6 +11,8 @@ import { generateResponse, type GenerateOptions } from "../agent/MentraAgent";
 import { broadcastChatEvent } from "../api/chat";
 import { formatForTTS } from "../utils/tts-formatter";
 import { getDefaultSoundUrl } from "../constants/config";
+import { isDbAvailable, db, photos } from "../db";
+import { eq } from "drizzle-orm";
 
 const PROCESSING_SOUND_URL = process.env.PROCESSING_SOUND_URL || getDefaultSoundUrl('processing.mp3');
 
@@ -52,14 +54,16 @@ export class QueryProcessor {
     lap('PROCESSING-SOUND');
 
     // Step 1: Use pre-captured photo, or fallback capture (only for visual queries)
-    let photos: Buffer[] = [];
+    let photoBuffers: Buffer[] = [];
     let photoDataUrl: string | undefined;
+    let sourcePhoto: StoredPhoto | null = null;
 
     if (hasCamera) {
       if (prePhoto) {
         console.log(`📸 Using pre-captured photo for ${this.user.userId}`);
-        photos = this.user.photo.getPhotosForContext();
+        photoBuffers = this.user.photo.getPhotosForContext();
         photoDataUrl = `data:${prePhoto.mimeType};base64,${prePhoto.buffer.toString("base64")}`;
+        sourcePhoto = prePhoto;
         lap('PHOTO-FROM-CACHE');
       } else if (isVisual) {
         // Visual query with no pre-photo — fallback capture with 10s timeout
@@ -71,8 +75,9 @@ export class QueryProcessor {
         ]);
         clearTimeout(timeoutId!);
         if (currentPhoto) {
-          photos = this.user.photo.getPhotosForContext();
+          photoBuffers = this.user.photo.getPhotosForContext();
           photoDataUrl = `data:${currentPhoto.mimeType};base64,${currentPhoto.buffer.toString("base64")}`;
+          sourcePhoto = currentPhoto;
         } else {
           console.warn(`📸 Fallback photo capture failed/timed out for ${this.user.userId}`);
         }
@@ -83,9 +88,19 @@ export class QueryProcessor {
       }
     }
 
+    // Persist analysis photo to DB (no Storage upload for analysis-only photos)
+    let photoId: string | undefined;
+    if (sourcePhoto) {
+      photoId = await this.persistAnalysisPhoto(sourcePhoto).catch((err) => {
+        console.error(`📸 [QP] Analysis photo persist failed for ${this.user.userId}:`, err);
+        return undefined;
+      });
+    }
+    lap('PERSIST-ANALYSIS-PHOTO');
+
     // If the query needed a photo but we couldn't get one, tell the user directly
     // instead of sending a photoless query to the LLM (which gives a useless answer)
-    if (isVisual && photos.length === 0) {
+    if (isVisual && photoBuffers.length === 0) {
       this.stopProcessingSound();
       const errorMsg = "Sorry, I couldn't capture a photo. Please make sure camera permission is enabled in the MentraOS app and try again.";
       console.warn(`📸 Visual query failed — no photo available for ${this.user.userId}`);
@@ -167,7 +182,7 @@ export class QueryProcessor {
     try {
       const result = await generateResponse({
         query,
-        photos: photos.length > 0 ? photos : undefined,
+        photos: photoBuffers.length > 0 ? photoBuffers : undefined,
         context,
         aiConfig: this.user.aiConfig,
         onToolCall: (toolName) => {
@@ -209,9 +224,16 @@ export class QueryProcessor {
     await this.outputResponse(formattedResponse, context.hasSpeakers, context.hasDisplay);
     lap('OUTPUT-TO-GLASSES');
 
+    // Update photo analysis with LLM response (fire-and-forget)
+    if (photoId) {
+      this.updatePhotoAnalysis(photoId, response).catch((err) => {
+        console.error(`📸 [QP] Photo analysis update failed for ${this.user.userId}:`, err);
+      });
+    }
+
     // Step 8: Save to chat history
-    const hadPhoto = photos.length > 0;
-    await this.user.chatHistory.addTurn(query, response, hadPhoto, photoDataUrl);
+    const hadPhoto = photoBuffers.length > 0;
+    await this.user.chatHistory.addTurn(query, response, hadPhoto, photoDataUrl, photoId);
     lap('SAVE-HISTORY');
 
     console.log(`⏱️ [PIPELINE-DONE] Total: ${Date.now() - pipelineStart}ms`);
@@ -320,6 +342,38 @@ export class QueryProcessor {
 
     // For HUD glasses or mixed, return as-is
     return response;
+  }
+
+  /**
+   * Persist an analysis photo to the photos table (no Storage upload).
+   * Returns the photo UUID, or undefined if DB is unavailable.
+   */
+  private async persistAnalysisPhoto(photo: StoredPhoto): Promise<string | undefined> {
+    if (!isDbAvailable()) return undefined;
+
+    const [row] = await db.insert(photos).values({
+      userId: photo.userId,
+      requestId: photo.requestId,
+      storagePath: null,
+      filename: photo.filename,
+      mimeType: photo.mimeType,
+      sizeBytes: photo.size,
+      saved: false,
+      capturedAt: photo.timestamp,
+    }).returning({ id: photos.id });
+
+    console.log(`📸 [QP] Analysis photo persisted: ${row.id}`);
+    return row.id;
+  }
+
+  /**
+   * Update a photo row with the LLM analysis text.
+   */
+  private async updatePhotoAnalysis(photoId: string, analysis: string): Promise<void> {
+    if (!isDbAvailable()) return;
+
+    await db.update(photos).set({ analysis }).where(eq(photos.id, photoId));
+    console.log(`📸 [QP] Photo analysis updated: ${photoId}`);
   }
 
   /**

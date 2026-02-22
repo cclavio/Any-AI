@@ -68,7 +68,7 @@ export const conversationTurns = pgTable("conversation_turns", {
   query: text("query").notNull(),
   response: text("response").notNull(),
   hadPhoto: boolean("had_photo").notNull().default(false),
-  photoTimestamp: integer("photo_timestamp"),
+  photoId: uuid("photo_id").references(() => photos.id),
   timestamp: timestamp("timestamp").notNull().defaultNow(),
 });
 
@@ -84,10 +84,12 @@ export const photos = pgTable("photos", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull(),
   requestId: text("request_id").notNull().unique(),
-  storagePath: text("storage_path").notNull(),
+  storagePath: text("storage_path"),
   filename: text("filename").notNull(),
   mimeType: text("mime_type").notNull(),
   sizeBytes: integer("size_bytes").notNull(),
+  saved: boolean("saved").notNull().default(false),
+  analysis: text("analysis"),
   capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
