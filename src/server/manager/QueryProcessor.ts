@@ -236,8 +236,12 @@ export class QueryProcessor {
    * Get local time string
    */
   private getLocalTime(): string {
-    // Use timezone (available even before geocoding, set from SDK settings)
+    // Use timezone (available even before geocoding, set from SDK settings or GPS auto-detect)
     const timezone = this.user.location.getTimezone();
+
+    if (!timezone) {
+      console.warn(`⚠️ No timezone set for ${this.user.userId} — time will use server default (likely UTC)`);
+    }
 
     try {
       const now = new Date();
@@ -251,7 +255,9 @@ export class QueryProcessor {
         options.timeZone = timezone;
       }
 
-      return now.toLocaleTimeString("en-US", options);
+      const timeStr = now.toLocaleTimeString("en-US", options);
+      console.log(`🕐 Local time for ${this.user.userId}: ${timeStr} (tz=${timezone ?? 'server-default'})`);
+      return timeStr;
     } catch {
       return new Date().toLocaleTimeString("en-US", {
         hour: "numeric",

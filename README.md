@@ -21,12 +21,15 @@
 Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts to your hardware — whether your glasses have a HUD display, camera, or speakers — and delivers responses in the most appropriate format.
 
 - **Voice activation** — Say "Hey Any AI" to start (customizable wake word)
+- **Conversational follow-up** — After the AI responds, the mic stays open for 5 seconds so you can ask follow-up questions without repeating the wake word
 - **Multi-provider** — Choose between OpenAI, Anthropic, or Google
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
 - **Vision** — Answers questions about what you're seeing (smart photo capture)
 - **Web search** — Real-time search with concise summaries via Jina
 - **Context aware** — Knows your location, time, weather, and conversation history
+- **Timezone detection** — Auto-detects your timezone from GPS when the OS doesn't provide it
 - **Personalization** — Custom assistant name, wake word, and model selection per user
+- **Audio & visual feedback** — Green LED on wake word, audio cues for listening/processing states, personalized TTS welcome message
 
 ## What Changed from Mentra AI 2
 
@@ -59,6 +62,7 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **Smart photo capture** — `isVisualQuery()` classifier determines if camera photo is needed before taking one
 - **Dynamic identity** — System prompt reflects user's chosen assistant name, model, and provider
 - **Auth hardening** — All `/api/*` routes require verified `aos_session` cookie; no endpoint reads userId from query params
+- **Row Level Security** — RLS enabled on all Supabase tables for defense-in-depth
 
 ### Supported Models
 
@@ -73,6 +77,7 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 ```
 src/
 ├── index.ts                          # Bun.serve + Hono entry point
+├── public/assets/audio/              # Audio cues (start, processing, welcome)
 ├── server/
 │   ├── MentraAI.ts                   # AppServer lifecycle (onSession/onStop)
 │   ├── agent/
@@ -89,8 +94,9 @@ src/
 │   │   └── vault.ts                  # Supabase Vault helpers (store/retrieve/delete)
 │   ├── manager/
 │   │   ├── ChatHistoryManager.ts     # Drizzle-based conversation persistence
+│   │   ├── LocationManager.ts        # GPS, geocoding, weather, timezone detection
 │   │   ├── QueryProcessor.ts         # Query pipeline (transcription → agent → TTS)
-│   │   └── TranscriptionManager.ts   # Wake word + smart photo capture
+│   │   └── TranscriptionManager.ts   # Wake word, follow-up mode, audio/LED feedback
 │   ├── routes/routes.ts              # Hono routes + SDK auth middleware
 │   ├── api/settings.ts               # Settings + provider config handlers
 │   └── session/User.ts               # Per-user state + aiConfig from DB/Vault
@@ -101,12 +107,23 @@ src/
     └── api/settings.api.ts           # Frontend API client
 ```
 
+## Interaction Flow
+
+```
+User says wake word → Green LED flash → Start listening sound
+  → User speaks query → Silence detected → Processing sound loops
+    → AI generates response → TTS speaks response
+      → Follow-up mode (green LED 2s, mic open 5s)
+        → User speaks again (no wake word needed) → repeat
+        → Silence for 5s → return to idle (wake word required)
+```
+
 ## Supported Glasses
 
 | Type | Input | Output |
 |------|-------|--------|
 | HUD + Mic | Voice | Text on display |
-| Camera + Speaker + Mic | Voice + Camera | Spoken responses |
+| Camera + Speaker + Mic | Voice + Camera | Spoken responses + Green LED feedback |
 
 ## Getting Started
 
@@ -131,13 +148,9 @@ src/
 git clone https://github.com/cclavio/Any-AI.git
 cd Any-AI
 bun install
-cp .env.example .env
+cp .env.example .env.local
 
-# Configure .env with your credentials
-# PORT, PACKAGE_NAME, MENTRAOS_API_KEY (required)
-# DATABASE_URL (required — Supabase Postgres connection string)
-# JINA_API_KEY (optional, for web search)
-# COOKIE_SECRET (required — for auth cookie signing)
+# Configure .env.local with your credentials (see Environment Variables below)
 
 # Start
 bun run dev
@@ -153,10 +166,11 @@ ngrok http --url=<YOUR_NGROK_URL> 3000
 | `PORT` | No | Server port (default: 3000) |
 | `PACKAGE_NAME` | Yes | MentraOS package identifier |
 | `MENTRAOS_API_KEY` | Yes | SDK authentication key from Developer Console |
-| `DATABASE_URL` | Yes | Supabase Postgres connection string |
-| `COOKIE_SECRET` | Yes | Secret for signing auth cookies |
+| `DATABASE_URL` | Yes | Supabase Postgres connection string (pooler/transaction mode) |
+| `COOKIE_SECRET` | Yes | Secret for signing auth cookies (`openssl rand -hex 32`) |
+| `PUBLIC_URL` | Yes | Base URL for serving static assets (e.g., `http://localhost:3000`) |
 | `JINA_API_KEY` | No | Jina API key for web search tool |
-| `GOOGLE_MAPS_API_KEY` | No | For geocoding / location features |
+| `GOOGLE_MAPS_API_KEY` | No | Google Maps key for geocoding, timezone detection, and weather. Enable Geocoding API, Time Zone API in Google Cloud Console |
 
 Individual AI provider API keys (OpenAI, Anthropic, Google) are **not** server env vars — they are stored per-user in Supabase Vault and entered via the Settings UI.
 

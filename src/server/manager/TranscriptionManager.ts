@@ -22,10 +22,11 @@ export type OnQueryReadyCallback = (query: string, speakerId?: string, prePhoto?
  * speaker locking, and SSE broadcasting for a single user.
  *
  * Simplified architecture:
- * - No follow-up mode
+ * - Auto follow-up after AI response (no wake word needed for follow-ups)
  * - No head position tracking
  * - No cancellation phrases
- * - Clean state machine: IDLE -> LISTENING -> (callback) -> IDLE
+ * - State machine: IDLE -> LISTENING -> (callback) -> FOLLOW_UP -> IDLE
+ *                                                   -> LISTENING (if speech detected in follow-up)
  */
 export class TranscriptionManager {
   private sseClients: Set<SSEWriter> = new Set();
@@ -49,6 +50,10 @@ export class TranscriptionManager {
   private readonly DUPLICATE_WINDOW_MS = 10000;  // 10s window to detect duplicates
   private readonly DUPLICATE_WORD_COUNT = 3;     // Compare first 3 words
 
+  // Follow-up mode: auto-listen after AI response
+  private isFollowUpMode = false;
+  private followUpTimeout: NodeJS.Timeout | undefined;
+
   // Timers
   private silenceTimeout: NodeJS.Timeout | undefined;
   private maxListeningTimeout: NodeJS.Timeout | undefined;
@@ -56,6 +61,7 @@ export class TranscriptionManager {
   // Config
   private readonly SILENCE_TIMEOUT_MS = 1500;  // 1.5s silence = query complete
   private readonly MAX_LISTENING_MS = 15000;   // 15s max listening time
+  private readonly FOLLOW_UP_WINDOW_MS = 5000; // 5s window for follow-up questions
 
   // Callback for when query is ready
   private onQueryReady: OnQueryReadyCallback | null = null;
@@ -123,6 +129,18 @@ export class TranscriptionManager {
     // If we're listening to a specific speaker, ignore others
     if (this.isListening && this.activeSpeakerId && speakerId !== this.activeSpeakerId) {
       return;
+    }
+
+    // If in follow-up mode and speech arrives, transition to active listening
+    if (this.isFollowUpMode && this.isListening) {
+      console.log(`🔄 Follow-up speech detected, continuing conversation`);
+      this.isFollowUpMode = false;
+      if (this.followUpTimeout) {
+        clearTimeout(this.followUpTimeout);
+        this.followUpTimeout = undefined;
+      }
+      // Play start sound to acknowledge follow-up input
+      this.playStartSound();
     }
 
     // Check for wake word (use user's custom wake word if configured)
@@ -265,8 +283,52 @@ export class TranscriptionManager {
     } catch (error) {
       console.error('Error processing query:', error);
     } finally {
-      this.resetState();
+      // Enter follow-up mode so user can ask more questions without wake word
+      if (!this.destroyed) {
+        this.enterFollowUpMode();
+      } else {
+        this.resetState();
+      }
     }
+  }
+
+  /**
+   * Enter follow-up listening mode after AI response.
+   * Green LED for 2s, 5s window to start speaking before returning to IDLE.
+   */
+  private enterFollowUpMode(): void {
+    this.isProcessing = false;
+    this.isListening = true;
+    this.isFollowUpMode = true;
+    this.currentTranscript = '';
+    this.transcriptionStartTime = Date.now();
+    this.pendingPhoto = null;
+    this.clearTimers();
+
+    // Visual feedback: green LED for 2s
+    if (this.user.appSession) {
+      this.user.appSession.led.solid("green", 2000).catch((err) => {
+        console.debug('Follow-up LED failed:', err);
+      });
+    }
+
+    // Follow-up window — if no speech in 5s, return to IDLE
+    this.followUpTimeout = setTimeout(() => {
+      if (this.isFollowUpMode && !this.isProcessing) {
+        console.log(`⏰ Follow-up window expired for ${this.user.userId}, returning to IDLE`);
+        this.resetState();
+      }
+    }, this.FOLLOW_UP_WINDOW_MS);
+
+    // Max listening timeout (safety net)
+    this.maxListeningTimeout = setTimeout(() => {
+      if (this.isListening && !this.isProcessing) {
+        console.log(`⏰ Max listening time reached in follow-up mode`);
+        this.processCurrentQuery();
+      }
+    }, this.MAX_LISTENING_MS);
+
+    console.log(`🔄 Follow-up mode active for ${this.user.userId} (${this.FOLLOW_UP_WINDOW_MS}ms window)`);
   }
 
   /**
@@ -275,6 +337,7 @@ export class TranscriptionManager {
   private resetState(): void {
     this.isListening = false;
     this.isProcessing = false;
+    this.isFollowUpMode = false;
     this.activeSpeakerId = undefined;
     this.currentTranscript = '';
     this.transcriptionStartTime = 0;
@@ -293,6 +356,10 @@ export class TranscriptionManager {
     if (this.maxListeningTimeout) {
       clearTimeout(this.maxListeningTimeout);
       this.maxListeningTimeout = undefined;
+    }
+    if (this.followUpTimeout) {
+      clearTimeout(this.followUpTimeout);
+      this.followUpTimeout = undefined;
     }
   }
 

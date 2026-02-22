@@ -81,6 +81,16 @@ export class LocationManager {
     this.currentLat = lat;
     this.currentLng = lng;
     console.log(`📍 Location updated for ${this.user.userId}: ${lat}, ${lng}`);
+
+    // If no timezone set yet (MentraOS didn't provide one), auto-detect from GPS
+    if (!this.userTimezone && GOOGLE_MAPS_API_KEY) {
+      this.fetchTimezoneFromCoordinates(lat, lng).then((tz) => {
+        if (tz && !this.userTimezone) {
+          this.setTimezone(tz);
+          console.log(`🕐 Timezone auto-detected from GPS: ${tz}`);
+        }
+      });
+    }
   }
 
   /**
@@ -365,12 +375,40 @@ export class LocationManager {
   }
 
   /**
-   * Set timezone (called from SDK settings)
+   * Set timezone (called from SDK settings or auto-detected from GPS)
    */
   setTimezone(timezone: string): void {
     this.userTimezone = timezone;
     if (this.cachedContext) {
       this.cachedContext.timezone = timezone;
+    }
+  }
+
+  /**
+   * Fetch timezone from coordinates using Google Maps Timezone API.
+   * Used as fallback when MentraOS doesn't provide userTimezone.
+   */
+  private async fetchTimezoneFromCoordinates(lat: number, lng: number): Promise<string | null> {
+    if (!GOOGLE_MAPS_API_KEY) return null;
+
+    try {
+      const response = await mapsClient.timezone({
+        params: {
+          location: { lat, lng },
+          timestamp: Math.floor(Date.now() / 1000),
+          key: GOOGLE_MAPS_API_KEY,
+        },
+        timeout: 5000,
+      });
+
+      if (response.data.status === 'OK' && response.data.timeZoneId) {
+        return response.data.timeZoneId;
+      }
+      console.warn(`⚠️ Timezone API returned: ${response.data.status}`);
+      return null;
+    } catch (error) {
+      console.warn('⚠️ Timezone lookup from GPS failed:', error);
+      return null;
     }
   }
 

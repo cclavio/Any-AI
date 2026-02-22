@@ -137,6 +137,8 @@ export class MentraAI extends AppServer {
     if (userTimezone) {
       user.location.setTimezone(userTimezone);
       console.log(`🕐 Set timezone: ${userTimezone}`);
+    } else {
+      console.warn(`⚠️ No userTimezone from MentraOS for ${userId} — will auto-detect from GPS`);
     }
 
     // Listen for timezone changes
