@@ -98,7 +98,7 @@ export const saveProviderConfig = async (params: {
   purpose: "llm" | "vision";
   provider: string;
   model: string;
-  apiKey: string;
+  apiKey?: string;
 }): Promise<{ success: boolean; error?: string }> => {
   const response = await fetch(`${getApiUrl()}/api/settings/provider`, {
     method: "POST",

@@ -189,11 +189,11 @@ export async function saveProviderConfig(c: Context) {
       purpose: "llm" | "vision";
       provider: Provider;
       model: string;
-      apiKey: string;
+      apiKey?: string;
     };
 
-    if (!purpose || !provider || !model || !apiKey) {
-      return c.json({ error: "Missing required fields: purpose, provider, model, apiKey" }, 400);
+    if (!purpose || !provider || !model) {
+      return c.json({ error: "Missing required fields: purpose, provider, model" }, 400);
     }
 
     if (purpose !== "llm" && purpose !== "vision") {
@@ -213,33 +213,45 @@ export async function saveProviderConfig(c: Context) {
       return c.json({ error: "Database not available" }, 503);
     }
 
-    // Validate the API key
-    const isValid = await validateApiKey(provider, apiKey);
-    if (!isValid) {
-      return c.json({ success: false, error: `API key validation failed for provider ${provider}` }, 400);
-    }
-
-    // Store key in Vault
-    const vaultId = await storeApiKey(userId, provider, purpose, apiKey);
-
-    // Update user_settings
-    const updateFields = purpose === "llm"
-      ? { llmProvider: provider, llmModel: model, llmApiKeyVaultId: vaultId, isAiConfigured: true, updatedAt: new Date() }
-      : { visionProvider: provider, visionModel: model, visionApiKeyVaultId: vaultId, updatedAt: new Date() };
-
     // Ensure row exists
     const [existing] = await db
       .select()
       .from(userSettings)
       .where(eq(userSettings.userId, userId));
 
-    if (!existing) {
-      await db.insert(userSettings).values({ userId, ...updateFields });
+    if (apiKey) {
+      // New API key provided — validate and store in Vault
+      const isValid = await validateApiKey(provider, apiKey);
+      if (!isValid) {
+        return c.json({ success: false, error: `API key validation failed for provider ${provider}` }, 400);
+      }
+
+      const vaultId = await storeApiKey(userId, provider, purpose, apiKey);
+
+      const updateFields = purpose === "llm"
+        ? { llmProvider: provider, llmModel: model, llmApiKeyVaultId: vaultId, isAiConfigured: true, updatedAt: new Date() }
+        : { visionProvider: provider, visionModel: model, visionApiKeyVaultId: vaultId, updatedAt: new Date() };
+
+      if (!existing) {
+        await db.insert(userSettings).values({ userId, ...updateFields });
+      } else {
+        await db.update(userSettings).set(updateFields).where(eq(userSettings.userId, userId));
+      }
     } else {
-      await db
-        .update(userSettings)
-        .set(updateFields)
-        .where(eq(userSettings.userId, userId));
+      // No new key — just update provider/model (only if a key already exists)
+      const existingVaultId = existing
+        ? (purpose === "llm" ? existing.llmApiKeyVaultId : existing.visionApiKeyVaultId)
+        : null;
+
+      if (!existingVaultId) {
+        return c.json({ error: "No API key on file. Please provide an API key." }, 400);
+      }
+
+      const updateFields = purpose === "llm"
+        ? { llmProvider: provider, llmModel: model, updatedAt: new Date() }
+        : { visionProvider: provider, visionModel: model, updatedAt: new Date() };
+
+      await db.update(userSettings).set(updateFields).where(eq(userSettings.userId, userId));
     }
 
     // Refresh the live session's in-memory AI config

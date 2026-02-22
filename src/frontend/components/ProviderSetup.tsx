@@ -287,13 +287,13 @@ export default function ProviderSetup() {
       // 1. Save personalization
       await updateUserSettings({ agentName, wakeWord });
 
-      // 2. Save LLM config if API key was entered
-      if (llmApiKey && llmProvider && llmModel) {
+      // 2. Save LLM config if key entered or key already on file
+      if ((llmApiKey || llmKeySet) && llmProvider && llmModel) {
         const result = await saveProviderConfig({
           purpose: 'llm',
           provider: llmProvider,
           model: llmModel,
-          apiKey: llmApiKey,
+          ...(llmApiKey ? { apiKey: llmApiKey } : {}),
         });
         if (!result.success) {
           setSaveMessage({
@@ -303,7 +303,7 @@ export default function ProviderSetup() {
           setSaving(false);
           return;
         }
-        setLlmKeySet(true);
+        if (llmApiKey) setLlmKeySet(true);
 
         // 3. If "use same provider", also save vision with LLM values
         if (useSameProvider) {
@@ -311,7 +311,7 @@ export default function ProviderSetup() {
             purpose: 'vision',
             provider: llmProvider,
             model: llmModel,
-            apiKey: llmApiKey,
+            ...(llmApiKey ? { apiKey: llmApiKey } : {}),
           });
           if (!vResult.success) {
             setSaveMessage({
@@ -321,7 +321,7 @@ export default function ProviderSetup() {
             setSaving(false);
             return;
           }
-          setVisionKeySet(true);
+          if (llmApiKey) setVisionKeySet(true);
           setVisionProvider(llmProvider);
           setVisionModel(llmModel);
         }
@@ -330,12 +330,12 @@ export default function ProviderSetup() {
       }
 
       // 4. Save vision separately if not using same provider
-      if (!useSameProvider && visionApiKey && visionProvider && visionModel) {
+      if (!useSameProvider && (visionApiKey || visionKeySet) && visionProvider && visionModel) {
         const result = await saveProviderConfig({
           purpose: 'vision',
           provider: visionProvider,
           model: visionModel,
-          apiKey: visionApiKey,
+          ...(visionApiKey ? { apiKey: visionApiKey } : {}),
         });
         if (!result.success) {
           setSaveMessage({
@@ -345,7 +345,7 @@ export default function ProviderSetup() {
           setSaving(false);
           return;
         }
-        setVisionKeySet(true);
+        if (visionApiKey) setVisionKeySet(true);
         setVisionApiKey('');
       }
 
