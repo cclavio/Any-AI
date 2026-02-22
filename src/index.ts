@@ -7,8 +7,14 @@
 
 import { createMentraAIServer } from "./server/MentraAI";
 import { api } from "./server/routes/routes";
-import { createMentraAuthRoutes } from "@mentra/sdk";
+import { createMentraAuthRoutes, logger as sdkLogger } from "@mentra/sdk";
 import indexHtml from "./frontend/index.html";
+
+// The SDK hardcodes NODE_ENV="development" internally, flooding logs at DEBUG level.
+// Override to "info" in production to stay under Railway's 500 logs/sec rate limit.
+if (process.env.NODE_ENV === "production") {
+  sdkLogger.level = "info";
+}
 
 // Configuration from environment
 const PORT = parseInt(process.env.PORT || "3000", 10);

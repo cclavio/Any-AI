@@ -132,6 +132,7 @@ export class TranscriptionManager {
 
       // Wake word detected! Start listening
       console.log(`⏱️ [WAKE] Wake word detected: "${text}" (isFinal=${isFinal ?? false})`);
+      this.flashWakeLed();
       this.startListening(speakerId);
     }
 
@@ -327,6 +328,17 @@ export class TranscriptionManager {
     }
 
     return true;
+  }
+
+  /**
+   * Flash the green LED briefly to acknowledge wake word detection
+   */
+  private flashWakeLed(): void {
+    if (this.user.appSession) {
+      this.user.appSession.led.solid("green", 500).catch((err) => {
+        console.debug('Wake LED flash failed:', err);
+      });
+    }
   }
 
   /**
