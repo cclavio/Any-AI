@@ -49,7 +49,7 @@ function ProviderSection({
   return (
     <div>
       <h3
-        className="text-[12px] font-semibold uppercase tracking-wide px-[4px] mb-[6px]"
+        className="text-[14px] font-semibold uppercase tracking-wide px-[4px] mb-[6px]"
         style={{ color: 'var(--muted-foreground)' }}
       >
         {label}
@@ -61,7 +61,7 @@ function ProviderSection({
         {/* Provider */}
         <div className="flex items-center justify-between px-[16px] h-[48px]">
           <span
-            className="text-[14px] font-medium"
+            className="text-[16px] font-medium"
             style={{ color: 'var(--secondary-foreground)' }}
           >
             Provider
@@ -69,7 +69,7 @@ function ProviderSection({
           <select
             value={selectedProvider}
             onChange={(e) => onProviderChange(e.target.value)}
-            className="text-[14px] bg-transparent border-none outline-none cursor-pointer"
+            className="text-[16px] bg-transparent border-none outline-none cursor-pointer"
             style={{ color: 'var(--muted-foreground)' }}
           >
             <option value="">Select...</option>
@@ -89,7 +89,7 @@ function ProviderSection({
         {/* Model */}
         <div className="flex items-center justify-between px-[16px] h-[48px]">
           <span
-            className="text-[14px] font-medium"
+            className="text-[16px] font-medium"
             style={{ color: 'var(--secondary-foreground)' }}
           >
             Model
@@ -97,7 +97,7 @@ function ProviderSection({
           <select
             value={selectedModel}
             onChange={(e) => onModelChange(e.target.value)}
-            className="text-[14px] bg-transparent border-none outline-none cursor-pointer"
+            className="text-[16px] bg-transparent border-none outline-none cursor-pointer"
             style={{ color: 'var(--muted-foreground)' }}
             disabled={!selectedProvider}
           >
@@ -118,7 +118,7 @@ function ProviderSection({
         {/* API Key */}
         <div className="flex items-center gap-2 px-[16px] h-[48px]">
           <span
-            className="text-[14px] font-medium shrink-0"
+            className="text-[16px] font-medium shrink-0"
             style={{ color: 'var(--secondary-foreground)' }}
           >
             API Key
@@ -129,7 +129,7 @@ function ProviderSection({
               value={apiKey}
               onChange={(e) => onApiKeyChange(e.target.value)}
               placeholder={keyIsSet ? '••••••••' : 'Enter API key'}
-              className="flex-1 text-[14px] bg-transparent border-none outline-none text-right min-w-0"
+              className="flex-1 text-[16px] bg-transparent border-none outline-none text-right min-w-0"
               style={{ color: 'var(--secondary-foreground)' }}
             />
             <button
@@ -144,7 +144,7 @@ function ProviderSection({
             <button
               onClick={onTest}
               disabled={!apiKey || !selectedProvider || testStatus === 'testing'}
-              className="shrink-0 text-[12px] font-medium px-2 py-1 rounded-[8px] transition-all disabled:opacity-40"
+              className="shrink-0 text-[14px] font-medium px-2 py-1 rounded-[8px] transition-all disabled:opacity-40"
               style={{
                 backgroundColor: 'var(--accent)',
                 color: 'var(--accent-foreground)',
@@ -392,7 +392,7 @@ export default function ProviderSetup() {
       {/* Personalization */}
       <div>
         <h3
-          className="text-[12px] font-semibold uppercase tracking-wide px-[4px] mb-[6px]"
+          className="text-[14px] font-semibold uppercase tracking-wide px-[4px] mb-[6px]"
           style={{ color: 'var(--muted-foreground)' }}
         >
           Personalization
@@ -403,7 +403,7 @@ export default function ProviderSetup() {
         >
           <div className="flex items-center justify-between px-[16px] h-[48px]">
             <label
-              className="text-[14px] font-medium"
+              className="text-[16px] font-medium"
               style={{ color: 'var(--secondary-foreground)' }}
             >
               Assistant Name
@@ -413,7 +413,7 @@ export default function ProviderSetup() {
               value={agentName}
               onChange={(e) => setAgentName(e.target.value)}
               placeholder="Any AI"
-              className="text-[14px] bg-transparent border-none outline-none text-right w-[160px]"
+              className="text-[16px] bg-transparent border-none outline-none text-right w-[160px]"
               style={{ color: 'var(--secondary-foreground)' }}
             />
           </div>
@@ -423,7 +423,7 @@ export default function ProviderSetup() {
           />
           <div className="flex items-center justify-between px-[16px] h-[48px]">
             <label
-              className="text-[14px] font-medium"
+              className="text-[16px] font-medium"
               style={{ color: 'var(--secondary-foreground)' }}
             >
               Wake Word
@@ -433,7 +433,7 @@ export default function ProviderSetup() {
               value={wakeWord}
               onChange={(e) => setWakeWord(e.target.value)}
               placeholder="Hey Jarvis"
-              className="text-[14px] bg-transparent border-none outline-none text-right w-[160px]"
+              className="text-[16px] bg-transparent border-none outline-none text-right w-[160px]"
               style={{ color: 'var(--secondary-foreground)' }}
             />
           </div>
@@ -483,7 +483,7 @@ export default function ProviderSetup() {
         </button>
         <span
           onClick={() => setUseSameProvider(!useSameProvider)}
-          className="text-[14px] cursor-pointer select-none"
+          className="text-[16px] cursor-pointer select-none"
           style={{ color: 'var(--secondary-foreground)' }}
         >
           Use same provider for vision
@@ -517,7 +517,7 @@ export default function ProviderSetup() {
       {/* Google Cloud (Optional) */}
       <div>
         <h3
-          className="text-[12px] font-semibold uppercase tracking-wide px-[4px] mb-[6px]"
+          className="text-[14px] font-semibold uppercase tracking-wide px-[4px] mb-[6px]"
           style={{ color: 'var(--muted-foreground)' }}
         >
           Google Cloud (Optional)
@@ -529,7 +529,7 @@ export default function ProviderSetup() {
           {/* Description */}
           <div className="px-[16px] py-[12px]">
             <p
-              className="text-[12px] leading-[18px]"
+              className="text-[14px] leading-[22px]"
               style={{ color: 'var(--muted-foreground)' }}
             >
               Enables location services: weather, air quality, pollen, nearby places, directions, and timezone detection. Requires a Google Cloud API key with these APIs enabled: Geocoding, Places (New), Routes, Time Zone, Weather, Air Quality, Pollen.
@@ -544,7 +544,7 @@ export default function ProviderSetup() {
           {/* API Key */}
           <div className="flex items-center gap-2 px-[16px] h-[48px]">
             <span
-              className="text-[14px] font-medium shrink-0"
+              className="text-[16px] font-medium shrink-0"
               style={{ color: 'var(--secondary-foreground)' }}
             >
               API Key
@@ -558,7 +558,7 @@ export default function ProviderSetup() {
                   setGoogleCloudTestStatus('idle');
                 }}
                 placeholder={googleCloudKeySet ? '••••••••' : 'Enter API key'}
-                className="flex-1 text-[14px] bg-transparent border-none outline-none text-right min-w-0"
+                className="flex-1 text-[16px] bg-transparent border-none outline-none text-right min-w-0"
                 style={{ color: 'var(--secondary-foreground)' }}
               />
               <button
@@ -573,7 +573,7 @@ export default function ProviderSetup() {
                   }
                 }}
                 disabled={!googleCloudKey || googleCloudTestStatus === 'testing'}
-                className="shrink-0 text-[12px] font-medium px-2 py-1 rounded-[8px] transition-all disabled:opacity-40"
+                className="shrink-0 text-[14px] font-medium px-2 py-1 rounded-[8px] transition-all disabled:opacity-40"
                 style={{
                   backgroundColor: 'var(--accent)',
                   color: 'var(--accent-foreground)',
@@ -606,13 +606,13 @@ export default function ProviderSetup() {
               />
               <div className="flex items-center justify-between px-[16px] h-[48px]">
                 <span
-                  className="text-[14px] font-medium"
+                  className="text-[16px] font-medium"
                   style={{ color: 'var(--secondary-foreground)' }}
                 >
                   Status
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-[13px] text-green-500">Configured</span>
+                  <span className="text-[15px] text-green-500">Configured</span>
                   <button
                     onClick={async () => {
                       try {
@@ -625,7 +625,7 @@ export default function ProviderSetup() {
                         setSaveMessage({ type: 'error', text: 'Failed to remove key' });
                       }
                     }}
-                    className="text-[12px] font-medium px-2 py-1 rounded-[8px] text-red-500"
+                    className="text-[14px] font-medium px-2 py-1 rounded-[8px] text-red-500"
                     style={{ backgroundColor: 'var(--accent)' }}
                     type="button"
                   >
@@ -642,7 +642,7 @@ export default function ProviderSetup() {
       <button
         onClick={handleSave}
         disabled={saving}
-        className="w-full h-[48px] rounded-[16px] text-[14px] font-semibold transition-all disabled:opacity-50"
+        className="w-full h-[48px] rounded-[16px] text-[16px] font-semibold transition-all disabled:opacity-50"
         style={{
           backgroundColor: 'var(--secondary-foreground)',
           color: 'var(--primary-foreground)',
@@ -655,7 +655,7 @@ export default function ProviderSetup() {
       {/* Save feedback message */}
       {saveMessage && (
         <p
-          className={`text-center text-[13px] font-medium ${
+          className={`text-center text-[15px] font-medium ${
             saveMessage.type === 'success' ? 'text-green-500' : 'text-red-500'
           }`}
         >

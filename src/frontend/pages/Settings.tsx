@@ -69,7 +69,7 @@ function Settings({
           style={{ backgroundColor: 'var(--primary-foreground)' }}
         >
           <p
-            className="text-[13px] leading-[1.5]"
+            className="text-[15px] leading-[1.5]"
             style={{ color: 'var(--muted-foreground)' }}
           >
             Configure your AI provider and API key below, then say your{' '}
@@ -85,7 +85,7 @@ function Settings({
 
         {/* Version Info */}
         <div className="pt-8 text-center">
-          <p className="text-[12px] text-gray-500">Any AI v0.8.0</p>
+          <p className="text-[13px] text-gray-500">Any AI v0.8.0</p>
         </div>
       </motion.div>
     </div>
