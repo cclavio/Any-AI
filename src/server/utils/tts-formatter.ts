@@ -125,6 +125,18 @@ export function formatForTTS(text: string): string {
     return timeWords;
   });
 
+  // Units — must run BEFORE number-to-words conversion so digit prefixes still match
+  result = result.replace(/(\d)\s*mph\b/gi, '$1 miles per hour');
+  result = result.replace(/(\d)\s*kph\b/gi, '$1 kilometers per hour');
+  result = result.replace(/(\d)\s*km\b/gi, '$1 kilometers');
+  result = result.replace(/(\d)\s*mi\b/gi, '$1 miles');
+  result = result.replace(/(\d)\s*lbs?\b/gi, '$1 pounds');
+  result = result.replace(/(\d)\s*kg\b/gi, '$1 kilograms');
+  result = result.replace(/(\d)\s*ft\b/gi, '$1 feet');
+  result = result.replace(/(\d)\s*in\b/gi, '$1 inches');
+  result = result.replace(/(\d)\s*cm\b/gi, '$1 centimeters');
+  result = result.replace(/(\d)\s*mm\b/gi, '$1 millimeters');
+
   // Standalone numbers: "42" -> "forty-two" (only if not part of a word)
   result = result.replace(/\b(\d+(?:\.\d+)?)\b/g, (_, num) => {
     return numberToWords(parseFloat(num));
@@ -142,18 +154,6 @@ export function formatForTTS(text: string): string {
   result = result.replace(/\bSt\./gi, 'Street');
   result = result.replace(/\bAve\./gi, 'Avenue');
   result = result.replace(/\bBlvd\./gi, 'Boulevard');
-
-  // Units
-  result = result.replace(/\bkm\b/gi, 'kilometers');
-  result = result.replace(/\bmi\b/gi, 'miles');
-  result = result.replace(/\bmph\b/gi, 'miles per hour');
-  result = result.replace(/\bkph\b/gi, 'kilometers per hour');
-  result = result.replace(/\blbs?\b/gi, 'pounds');
-  result = result.replace(/\bkg\b/gi, 'kilograms');
-  result = result.replace(/\bft\b/gi, 'feet');
-  result = result.replace(/\bin\b/gi, 'inches');
-  result = result.replace(/\bcm\b/gi, 'centimeters');
-  result = result.replace(/\bmm\b/gi, 'millimeters');
 
   // Clean up extra whitespace
   result = result.replace(/\s+/g, ' ').trim();

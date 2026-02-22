@@ -35,8 +35,8 @@ export const WORD_LIMITS = {
 export const CONVERSATION_SETTINGS = {
   // Maximum number of turns to include in context
   maxTurns: 30,
-  // Maximum age of turns to include (1 hour in ms)
-  maxAgeMs: 60 * 60 * 1000,
+  // Maximum age of turns to include (8 hours in ms)
+  maxAgeMs: 8 * 60 * 60 * 1000,
 };
 
 /**

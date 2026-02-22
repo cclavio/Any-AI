@@ -246,7 +246,7 @@ export class TranscriptionManager {
     console.log(`⏱️ [SILENCE] Query ready: "${query}" (${timeSinceWake}ms since wake word)`);
 
     // Classify query: does it need a photo?
-    const hasCamera = this.user.appSession?.capabilities?.hasCamera ?? false;
+    const hasCamera = !(this.user.appSession?.capabilities?.hasDisplay ?? false);
     let isVisual = false;
     let prePhoto: StoredPhoto | null = null;
 
@@ -260,6 +260,12 @@ export class TranscriptionManager {
 
       // Only take photo if the query requires vision
       if (isVisual) {
+        // Play shutter sound for audio feedback
+        const shutterUrl = getDefaultSoundUrl('shutter.mp3');
+        if (shutterUrl && this.user.appSession) {
+          this.user.appSession.audio.playAudio({ audioUrl: shutterUrl }).catch(() => {});
+        }
+
         console.log(`📸 Taking photo for visual query: ${this.user.userId}`);
         try {
           prePhoto = await this.user.photo.takePhoto();

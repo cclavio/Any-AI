@@ -41,13 +41,12 @@ function Settings({
       }}
     >
       {/* Page Title */}
-      <div className="w-full px-[24px] pt-[24px] pb-[8px]">
+      <div className="w-full px-[24px] pt-[24px] pb-[8px] text-center">
         <h1
           className="text-[22px] font-bold"
           style={{ color: 'var(--secondary-foreground)' }}
         >
-          <span style={{ color: 'var(--muted-foreground)', fontWeight: 400 }}>[any]</span>{' '}
-          AI Configuration
+          App Configuration
         </h1>
       </div>
 

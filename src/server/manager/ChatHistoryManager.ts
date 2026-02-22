@@ -38,10 +38,20 @@ export class ChatHistoryManager {
   constructor(private user: User) {}
 
   /**
-   * Initialize the manager (no-op — Drizzle connects lazily)
+   * Initialize the manager — hydrate in-memory cache from today's DB history
    */
   async initialize(): Promise<void> {
-    // Drizzle connects lazily on first query — nothing to do here
+    if (!isDbAvailable()) return;
+
+    try {
+      const todaysTurns = await this.getHistoryByDate(new Date());
+      if (todaysTurns.length > 0) {
+        this.recentTurns = todaysTurns.slice(-CONVERSATION_SETTINGS.maxTurns);
+        console.log(`📜 Loaded ${this.recentTurns.length} conversation turns from DB`);
+      }
+    } catch (error) {
+      console.warn("Failed to load conversation history from DB:", error);
+    }
   }
 
   /**
