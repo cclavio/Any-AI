@@ -1,10 +1,7 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import Header from '../components/Header';
-import SettingItem from '../ui/setting-item';
-import ToggleSwitch from '../ui/toggle-switch';
-import SimpleToggle from '../ui/simple-toggle';
-import { updateTheme, updateChatHistoryEnabled, fetchUserSettings } from '../api/settings.api';
+import { fetchUserSettings } from '../api/settings.api';
 import ProviderSetup from '../components/ProviderSetup';
 
 interface SettingsProps {
@@ -15,22 +12,6 @@ interface SettingsProps {
   onChatHistoryToggle?: (enabled: boolean) => void;
   onEnableDebugMode?: () => void;
 }
-
-interface SettingItemInfo {
-  settingName: string;
-  description?: string;
-}
-
-const settingItems: Record<string, SettingItemInfo> = {
-  darkMode: {
-    settingName: 'Theme',
-    description: '',
-  },
-  chatHistory: {
-    settingName: 'Chat History',
-    description: 'Save conversations to view later',
-  },
-};
 
 /**
  * Settings page component
@@ -44,8 +25,6 @@ function Settings({
   onEnableDebugMode,
 }: SettingsProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [chatHistoryEnabled, setChatHistoryEnabled] = useState(false);
-  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   // Hidden 10-tap debug mode activation
   const tapCountRef = useRef(0);
@@ -58,50 +37,6 @@ function Settings({
     if (tapCountRef.current >= 10) {
       tapCountRef.current = 0;
       onEnableDebugMode?.();
-    }
-  };
-
-  // Fetch user settings on mount
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const settings = await fetchUserSettings();
-        setChatHistoryEnabled(settings.chatHistoryEnabled ?? false);
-      } catch (error) {
-        console.error('Failed to load settings:', error);
-      } finally {
-        setIsLoadingSettings(false);
-      }
-    };
-    loadSettings();
-  }, [userId]);
-
-  // Handle chat history toggle
-  const handleChatHistoryToggle = async () => {
-    const newValue = !chatHistoryEnabled;
-    setChatHistoryEnabled(newValue);
-
-    try {
-      await updateChatHistoryEnabled(newValue);
-      console.log('Chat history setting synced:', newValue);
-      onChatHistoryToggle?.(newValue);
-    } catch (error) {
-      console.error('Failed to update chat history setting:', error);
-      setChatHistoryEnabled(!newValue);
-    }
-  };
-
-  // Handle theme toggle
-  const handleThemeToggle = async () => {
-    const newTheme = isDarkMode ? 'light' : 'dark';
-    onToggleDarkMode();
-
-    try {
-      await updateTheme(newTheme);
-      console.log('Theme synced:', newTheme);
-    } catch (error) {
-      console.error('Failed to update theme:', error);
-      onToggleDarkMode();
     }
   };
 
@@ -119,8 +54,8 @@ function Settings({
       <Header
         isDarkMode={isDarkMode}
         onToggleDarkMode={onToggleDarkMode}
-        onSettingsClick={onBack}
-        showBackArrow={true}
+        onSettingsClick={() => {}}
+        showBackArrow={false}
       />
 
       {/* Settings Content */}
@@ -136,39 +71,29 @@ function Settings({
           touchAction: 'pan-y',
         }}
       >
-        {/* Theme Setting */}
-        <SettingItem
-          isFirstItem={true}
-          isLastItem={true}
-          settingItemName={settingItems.darkMode.settingName}
-          description={settingItems.darkMode.description}
-          customContent={
-            <ToggleSwitch isOn={isDarkMode} onToggle={handleThemeToggle} label="Theme" />
-          }
-        />
-
-        {/* Chat History Setting — disabled until persistence is implemented
-        <SettingItem
-          isFirstItem={false}
-          isLastItem={true}
-          settingItemName={settingItems.chatHistory.settingName}
-          description={settingItems.chatHistory.description}
-          customContent={
-            <SimpleToggle
-              isOn={chatHistoryEnabled}
-              onToggle={handleChatHistoryToggle}
-              label="Chat History"
-            />
-          }
-        />
-        */}
+        {/* How-to instructions */}
+        <div
+          className="rounded-[16px] px-[16px] py-[14px]"
+          style={{ backgroundColor: 'var(--primary-foreground)' }}
+        >
+          <p
+            className="text-[13px] leading-[1.5]"
+            style={{ color: 'var(--muted-foreground)' }}
+          >
+            Configure your AI provider and API key below, then say{' '}
+            <span style={{ color: 'var(--secondary-foreground)', fontWeight: 600 }}>
+              "Hey Jarvis"
+            </span>{' '}
+            followed by your question.
+          </p>
+        </div>
 
         {/* AI Provider Setup */}
         <ProviderSetup />
 
         {/* Version Info */}
         <div className="pt-8 text-center">
-          <p className="text-[12px] text-gray-500">Any AI v1.0.0</p>
+          <p className="text-[12px] text-gray-500">Any AI v0.8.0</p>
         </div>
       </motion.div>
     </div>

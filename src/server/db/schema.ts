@@ -25,7 +25,7 @@ export const userSettings = pgTable("user_settings", {
 
   // Personalization
   agentName: text("agent_name").notNull().default("Any AI"),
-  wakeWord: text("wake_word").notNull().default("hey jarvis"),
+  wakeWord: text("wake_word").notNull().default("Hey Jarvis"),
 
   // LLM provider config
   llmProvider: text("llm_provider").default("openai"),

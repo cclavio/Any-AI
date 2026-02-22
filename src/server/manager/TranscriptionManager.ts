@@ -97,7 +97,7 @@ export class TranscriptionManager {
 
     this.sttEventCount = 0;
 
-    const wakeWord = this.user.aiConfig?.wakeWord ?? 'hey any ai';
+    const wakeWord = this.user.aiConfig?.wakeWord ?? 'Hey Jarvis';
     console.log(`🎤 TranscriptionManager ready for ${this.user.userId} (wake word: "${wakeWord}")`);
   }
 

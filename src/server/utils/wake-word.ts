@@ -2,14 +2,14 @@
  * Wake Word Detection for Any AI
  *
  * Detects wake word activation in transcription text.
- * The wake word is configurable per-user (default: "hey any ai").
+ * The wake word is configurable per-user (default: "Hey Jarvis").
  */
 
 /**
  * Default wake words for Any AI activation
  */
 export const DEFAULT_WAKE_WORDS = [
-  "hey any ai",
+  "Hey Jarvis",
 ];
 
 /**

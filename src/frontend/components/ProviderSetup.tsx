@@ -415,7 +415,7 @@ export default function ProviderSetup() {
               type="text"
               value={wakeWord}
               onChange={(e) => setWakeWord(e.target.value)}
-              placeholder="hey jarvis"
+              placeholder="Hey Jarvis"
               className="text-[14px] bg-transparent border-none outline-none text-right w-[160px]"
               style={{ color: 'var(--secondary-foreground)' }}
             />

@@ -171,7 +171,7 @@ export class MentraAI extends AppServer {
   private playWelcome(session: AppSession, user: User): void {
     const hasDisplay = session.capabilities?.hasDisplay ?? false;
     const agentName = user.aiConfig?.agentName ?? "Any AI";
-    const wakeWord = user.aiConfig?.wakeWord ?? "Hey Any AI";
+    const wakeWord = user.aiConfig?.wakeWord ?? "Hey Jarvis";
 
     if (hasDisplay) {
       // HUD glasses: show text

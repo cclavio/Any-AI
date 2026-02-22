@@ -128,7 +128,7 @@ export async function getProviderConfig(c: Context) {
     if (!isDbAvailable()) {
       return c.json({
         agentName: "Any AI",
-        wakeWord: "hey jarvis",
+        wakeWord: "Hey Jarvis",
         llm: { provider: "openai", model: "gpt-5-mini", isConfigured: false },
         vision: { provider: "google", model: "gemini-2.5-flash", isConfigured: false },
       });
@@ -142,7 +142,7 @@ export async function getProviderConfig(c: Context) {
     if (!settings) {
       return c.json({
         agentName: "Any AI",
-        wakeWord: "hey jarvis",
+        wakeWord: "Hey Jarvis",
         llm: { provider: "openai", model: "gpt-5-mini", isConfigured: false },
         vision: { provider: "google", model: "gemini-2.5-flash", isConfigured: false },
       });
