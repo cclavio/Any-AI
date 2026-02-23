@@ -103,6 +103,7 @@ export class User {
   async initialize(): Promise<void> {
     await this.chatHistory.initialize();
     await this.calendar.initialize();
+    await this.notifications.initialize();
 
     // Load AI config from Supabase if available
     if (isDbAvailable()) {

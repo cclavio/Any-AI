@@ -25,7 +25,7 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **TTS interrupt** — The mic is live during AI speech output. Start talking to interrupt the response and immediately ask a new question
 - **Conversational closers** — Say "thanks", "I'm good", or "that's all" to end an exchange instantly without triggering the AI. Gratitude closers get a quick "You're welcome!" response; dismissals return to idle silently
 - **Comprehension auto-close** — If the AI can't understand you twice in a row (noisy environment, mumbling), it gracefully ends the exchange instead of looping "please repeat that" indefinitely
-- **Voice commands** — Say "take a photo", "what's my battery?", or "what's my schedule?" for instant device responses (bypasses the AI pipeline)
+- **Voice commands** — Say "take a photo", "what's my battery?", "what's my schedule?", or "check my notifications" for instant device responses (bypasses the AI pipeline)
 - **Multi-provider** — Choose between OpenAI, Anthropic, or Google
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
 - **Vision** — Answers questions about what you're seeing (smart photo capture with shutter sound feedback)
@@ -34,7 +34,8 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Location services** — Nearby places, directions, weather, air quality, and pollen data (optional Google Cloud API key)
 - **Battery check** — Ask "what's my battery?" for instant glasses battery level and charging status
 - **Calendar aware** — Receives calendar events from your phone; ask "what's my schedule?" for an instant readout, or ask the AI questions like "when is my next meeting?"
-- **Context aware** — Knows your location, date, time, weather, calendar, and conversation history
+- **Notification intelligence** — Phone notifications are received via SDK, persisted to Postgres with typed fields (app, title, content, priority), and injected into the AI's context grouped by app. Say "check my notifications" for an instant spoken readout, or ask the AI "do I have any messages from John?" for contextual answers. Notifications survive server restarts via DB hydration and are auto-removed when dismissed on the phone.
+- **Context aware** — Knows your location, date, time, weather, calendar, notifications, and conversation history
 - **Exchange tracking** — Conversation turns are grouped into "exchanges" (wake word to done). Each exchange gets auto-generated topic tags via a lightweight LLM call. The AI's system prompt shows 48 hours of exchange-grouped history with temporal labels ("today morning", "yesterday evening") and tags, so it can distinguish "this morning's conversation about cookies" from "right now"
 - **Conversation persistence** — History hydrated from DB on session start; 48-hour exchange-grouped context window. Each turn records which `user_context` rows were active (`context_ids`) and which exchange it belongs to (`exchange_id`), enabling full traceability of what the AI knew when it responded
 - **Session resilience** — Survives network blips and idle socket timeouts with a 5-minute grace period; no "Welcome" replay on reconnect
@@ -92,6 +93,7 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **TTS interrupt** — Mic stays live during AI speech output; incoming speech stops audio playback via `stopAudio(2)` and processes the interrupt as a new query. `QueryProcessor` returns a `QueryResult` with a non-blocking `ttsComplete` promise so `TranscriptionManager` controls TTS lifecycle
 - **Smart silence** — Silence timeout increased to 3 seconds so users aren't cut off mid-thought when pausing
 - **Comprehension auto-close** — Regex-based `isComprehensionFailure()` classifier detects "I didn't catch that" LLM responses. Two consecutive failures (empty transcript or agent repeat) trigger a friendly auto-close message and end the exchange with `comprehension_failure` end reason
+- **Notification intelligence** — `NotificationManager` rewritten from `unknown`-typed stub to fully typed `PhoneNotification` handler with in-memory Map + `user_context` DB persistence (4-hour TTL). `onPhoneNotificationDismissed` wired to auto-remove stale entries. AI prompt shows notifications grouped by app with priority indicators. "Check my notifications" voice command gives instant spoken readout. Hydrates from DB on restart.
 
 ### Supported Models
 
@@ -113,7 +115,7 @@ src/
 │   │   ├── MentraAgent.ts            # AI SDK generateText() wrapper
 │   │   ├── comprehension-failure.ts  # Regex-based comprehension failure classifier
 │   │   ├── conversational-closers.ts # Regex-based closer classifier (gratitude, dismissal)
-│   │   ├── device-commands.ts        # Regex-based device command classifier (photo, battery, schedule)
+│   │   ├── device-commands.ts        # Regex-based device command classifier (photo, battery, schedule, notifications)
 │   │   ├── prompt.ts                 # Dynamic system prompt builder (exchange-grouped history)
 │   │   ├── providers/
 │   │   │   ├── types.ts              # UserAIConfig, MODEL_CATALOG, Provider
@@ -128,7 +130,7 @@ src/
 │   ├── manager/
 │   │   ├── CalendarManager.ts        # Calendar events from phone (in-memory + DB persistence)
 │   │   ├── ChatHistoryManager.ts     # Drizzle-based conversation persistence + exchange-grouped queries
-│   │   ├── DeviceCommandHandler.ts   # Hardware command executor (photo, battery, schedule)
+│   │   ├── DeviceCommandHandler.ts   # Hardware command executor (photo, battery, schedule, notifications)
 │   │   ├── ExchangeManager.ts       # Exchange lifecycle (start/end) + async tag generation
 │   │   ├── LocationManager.ts        # GPS, geocoding, weather, air quality, pollen, timezone
 │   │   ├── QueryProcessor.ts         # Query pipeline (transcription → agent → TTS)
@@ -151,10 +153,11 @@ Wake word OR single-press action button → Green LED flash → Start listening 
     → Conversational closer? (e.g. "thanks", "I'm good", "bye")
       → Gratitude: Speaks "You're welcome!" → Exchange ends → Idle
       → Dismissal: Silent → Exchange ends → Idle
-    → Device command? (e.g. "take a photo", "what's my battery?", "what's my schedule?")
+    → Device command? (e.g. "take a photo", "what's my battery?", "what's my schedule?", "check my notifications")
       → Photo: Shutter sound → Photo saved to camera roll + Supabase Storage → Speaks "Photo saved"
       → Battery: Reads device state → Speaks "Battery is at 73 percent"
       → Schedule: Reads calendar cache → Speaks "You have 2 upcoming events today..."
+      → Notifications: Reads notification cache → Speaks "You have 3 notifications. 2 from Messages..."
       → Follow-up mode (no AI call)
     → Normal query? → Processing sound loops
       → Visual query? → Shutter sound → Photo captured for AI context

@@ -247,7 +247,10 @@ export class QueryProcessor {
 
     // Step 8: Save to chat history (with active context IDs and exchange ID for traceability)
     const hadPhoto = photoBuffers.length > 0;
-    const contextIds = this.user.calendar.getActiveContextIds();
+    const contextIds = [
+      ...this.user.calendar.getActiveContextIds(),
+      ...this.user.notifications.getActiveContextIds(),
+    ];
     const exchangeId = this.user.exchange.getCurrentExchangeId();
     await this.user.chatHistory.addTurn(query, response, hadPhoto, photoDataUrl, photoId, contextIds, exchangeId);
     lap('SAVE-HISTORY');

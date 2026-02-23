@@ -60,12 +60,12 @@ export class MentraAI extends AppServer {
         existingUser.location.updateCoordinates(locationData.lat, locationData.lng);
       });
 
-      session.events.onPhoneNotifications((notifications) => {
-        if (Array.isArray(notifications)) {
-          existingUser.notifications.addNotifications(notifications);
-        } else if (notifications) {
-          existingUser.notifications.addNotification(notifications);
-        }
+      session.events.onPhoneNotifications((notification) => {
+        existingUser.notifications.addNotification(notification);
+      });
+
+      session.events.onPhoneNotificationDismissed((dismissed) => {
+        existingUser.notifications.removeNotification(dismissed);
       });
 
       session.events.onCalendarEvent((event) => {
@@ -127,12 +127,13 @@ export class MentraAI extends AppServer {
     });
 
     // Wire up phone notifications
-    session.events.onPhoneNotifications((notifications) => {
-      if (Array.isArray(notifications)) {
-        user.notifications.addNotifications(notifications);
-      } else if (notifications) {
-        user.notifications.addNotification(notifications);
-      }
+    session.events.onPhoneNotifications((notification) => {
+      user.notifications.addNotification(notification);
+    });
+
+    // Wire up notification dismissals
+    session.events.onPhoneNotificationDismissed((dismissed) => {
+      user.notifications.removeNotification(dismissed);
     });
 
     // Wire up calendar events

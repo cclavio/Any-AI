@@ -9,7 +9,8 @@
 export type DeviceCommand =
   | { type: "take_photo" }
   | { type: "check_battery" }
-  | { type: "check_schedule" };
+  | { type: "check_schedule" }
+  | { type: "check_notifications" };
 
 const TAKE_PHOTO_PATTERN =
   /\b(take|snap|capture|shoot|grab|get)\b.*\b(a\s+)?(photo|picture|snapshot|pic|shot|image)\b/i;
@@ -19,6 +20,9 @@ const CHECK_BATTERY_PATTERN =
 
 const CHECK_SCHEDULE_PATTERN =
   /\b(what('s| is|s)|check|show|tell me|read)\b.*\b(my\s+)?(schedule|calendar|appointments|events|agenda)\b/i;
+
+const CHECK_NOTIFICATIONS_PATTERN =
+  /\b(what('s| is|s)|check|show|tell me|read|any)\b.*\b(my\s+)?(notifications?|alerts?|messages)\b/i;
 
 /**
  * Classify a transcribed query as a device command, or null if it
@@ -33,6 +37,9 @@ export function classifyDeviceCommand(query: string): DeviceCommand | null {
   }
   if (CHECK_SCHEDULE_PATTERN.test(query)) {
     return { type: "check_schedule" };
+  }
+  if (CHECK_NOTIFICATIONS_PATTERN.test(query)) {
+    return { type: "check_notifications" };
   }
   return null;
 }

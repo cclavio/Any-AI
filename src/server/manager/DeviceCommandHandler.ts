@@ -23,6 +23,8 @@ export class DeviceCommandHandler {
         return this.checkBattery();
       case "check_schedule":
         return this.checkSchedule();
+      case "check_notifications":
+        return this.checkNotifications();
     }
   }
 
@@ -66,6 +68,13 @@ export class DeviceCommandHandler {
    */
   private checkSchedule(): string {
     return this.user.calendar.formatScheduleReadout();
+  }
+
+  /**
+   * Read recent notifications from in-memory cache (no LLM call).
+   */
+  private checkNotifications(): string {
+    return this.user.notifications.formatNotificationReadout();
   }
 
   /**

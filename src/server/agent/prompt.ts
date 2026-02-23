@@ -166,6 +166,7 @@ IMPORTANT: When the user asks "what can you do?" or "what can I do with these gl
 - "Take a photo" / "take a picture" — saves to camera roll
 - "Battery" / "what's my power" — reads battery percentage
 - "What's my schedule?" / "check my calendar" — reads today's events
+- "Check my notifications" / "any messages?" — reads recent phone notifications
 
 NEVER suggest features that require hardware the user doesn't have.`;
 }
@@ -292,9 +293,9 @@ function buildContextSection(context: AgentContext): string {
     sections.push(`**Today's Schedule:**\n${context.calendar}`);
   }
 
-  // Notifications
-  if (context.notifications && context.notifications !== "No recent notifications.") {
-    sections.push(`**Recent Notifications:**\n${context.notifications}`);
+  // Notifications (formatted with header by NotificationManager)
+  if (context.notifications) {
+    sections.push(context.notifications);
   }
 
   // Conversation history — prefer exchange-grouped format when available
