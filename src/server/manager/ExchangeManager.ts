@@ -16,7 +16,7 @@ import { generateText } from "ai";
 import { resolveLLMModel } from "../agent/providers/registry";
 import { EXCHANGE_SETTINGS } from "../constants/config";
 
-export type EndReason = "closer_gratitude" | "closer_dismissal" | "follow_up_timeout" | "session_disconnect";
+export type EndReason = "closer_gratitude" | "closer_dismissal" | "follow_up_timeout" | "session_disconnect" | "comprehension_failure";
 
 interface BufferedTurn {
   query: string;

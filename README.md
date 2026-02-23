@@ -22,7 +22,9 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 
 - **Voice activation** — Say "Hey Any AI" to start (customizable wake word), or single-press the action button
 - **Conversational follow-up** — After the AI responds, the mic stays open for 10 seconds so you can ask follow-up questions without repeating the wake word
+- **TTS interrupt** — The mic is live during AI speech output. Start talking to interrupt the response and immediately ask a new question
 - **Conversational closers** — Say "thanks", "I'm good", or "that's all" to end an exchange instantly without triggering the AI. Gratitude closers get a quick "You're welcome!" response; dismissals return to idle silently
+- **Comprehension auto-close** — If the AI can't understand you twice in a row (noisy environment, mumbling), it gracefully ends the exchange instead of looping "please repeat that" indefinitely
 - **Voice commands** — Say "take a photo", "what's my battery?", or "what's my schedule?" for instant device responses (bypasses the AI pipeline)
 - **Multi-provider** — Choose between OpenAI, Anthropic, or Google
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
@@ -87,6 +89,9 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **TTS improvements** — Unit abbreviations (mph, km, ft, etc.) expanded before number-to-words conversion for correct speech output
 - **Exchange tracking** — Turns grouped into exchanges (wake word → done) with auto-generated topic tags via fire-and-forget LLM call. System prompt uses 48-hour exchange-grouped history with temporal labels
 - **Conversational closers** — Regex-based closer detection ("thanks", "I'm good", "bye") ends exchanges without triggering the AI pipeline, with optional spoken acknowledgment
+- **TTS interrupt** — Mic stays live during AI speech output; incoming speech stops audio playback via `stopAudio(2)` and processes the interrupt as a new query. `QueryProcessor` returns a `QueryResult` with a non-blocking `ttsComplete` promise so `TranscriptionManager` controls TTS lifecycle
+- **Smart silence** — Silence timeout increased to 3 seconds so users aren't cut off mid-thought when pausing
+- **Comprehension auto-close** — Regex-based `isComprehensionFailure()` classifier detects "I didn't catch that" LLM responses. Two consecutive failures (empty transcript or agent repeat) trigger a friendly auto-close message and end the exchange with `comprehension_failure` end reason
 
 ### Supported Models
 
@@ -106,6 +111,7 @@ src/
 │   ├── MentraAI.ts                   # AppServer lifecycle (onSession/onStop) with soft disconnect
 │   ├── agent/
 │   │   ├── MentraAgent.ts            # AI SDK generateText() wrapper
+│   │   ├── comprehension-failure.ts  # Regex-based comprehension failure classifier
 │   │   ├── conversational-closers.ts # Regex-based closer classifier (gratitude, dismissal)
 │   │   ├── device-commands.ts        # Regex-based device command classifier (photo, battery, schedule)
 │   │   ├── prompt.ts                 # Dynamic system prompt builder (exchange-grouped history)
@@ -152,9 +158,11 @@ Wake word OR single-press action button → Green LED flash → Start listening 
       → Follow-up mode (no AI call)
     → Normal query? → Processing sound loops
       → Visual query? → Shutter sound → Photo captured for AI context
-      → AI generates response → TTS speaks response
-        → Follow-up mode (green LED 2s, mic open 10s)
+      → AI generates response → TTS speaks response (mic live — can interrupt)
+        → User interrupts mid-speech? → TTS stops → new speech processed immediately
+        → Follow-up mode (green LED, mic open 10s)
           → User speaks again (no wake word needed) → repeat (same exchange)
+          → 2 consecutive comprehension failures → auto-close message → Idle
           → Silence for 10s → Exchange ends (tags generated async) → Idle
 ```
 

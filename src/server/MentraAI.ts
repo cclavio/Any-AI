@@ -48,7 +48,7 @@ export class MentraAI extends AppServer {
 
       // Re-attach event listeners
       existingUser.transcription.setOnQueryReady(async (query, speakerId, prePhoto, isVisual) => {
-        await existingUser.queryProcessor.processQuery(query, speakerId, prePhoto, isVisual);
+        return existingUser.queryProcessor.processQuery(query, speakerId, prePhoto, isVisual);
       });
 
       existingUser.transcription.setOnDeviceCommand(async (command) => {
@@ -112,7 +112,7 @@ export class MentraAI extends AppServer {
 
     // Set up transcription callback for query processing
     user.transcription.setOnQueryReady(async (query, speakerId, prePhoto, isVisual) => {
-      await user.queryProcessor.processQuery(query, speakerId, prePhoto, isVisual);
+      return user.queryProcessor.processQuery(query, speakerId, prePhoto, isVisual);
     });
 
     // Set up device command callback (e.g. "take a photo" → camera roll)

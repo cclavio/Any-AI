@@ -84,6 +84,14 @@ export const EXCHANGE_SETTINGS = {
 };
 
 /**
+ * Comprehension failure auto-close settings
+ */
+export const COMPREHENSION_SETTINGS = {
+  maxConsecutiveFailures: 2,
+  autoCloseMessage: "I can't hear you clearly. I'll give you a beat. Just let me know when you're ready to chat.",
+};
+
+/**
  * Resolve a default sound URL from the app's public URL.
  * Glasses need an absolute URL to fetch audio files.
  * Falls back to null if PUBLIC_URL is not configured.

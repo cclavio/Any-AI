@@ -17,6 +17,15 @@ import { eq } from "drizzle-orm";
 const PROCESSING_SOUND_URL = process.env.PROCESSING_SOUND_URL || getDefaultSoundUrl('processing.mp3');
 
 /**
+ * Result from processing a query — includes the text response and
+ * a promise that resolves when TTS output finishes.
+ */
+export interface QueryResult {
+  response: string;
+  ttsComplete: Promise<void>;
+}
+
+/**
  * QueryProcessor — handles the full query processing pipeline.
  */
 export class QueryProcessor {
@@ -29,11 +38,11 @@ export class QueryProcessor {
    * prePhoto is a photo pre-captured at wake word time (already awaited).
    * isVisual indicates whether the query was classified as needing the camera photo.
    */
-  async processQuery(query: string, speakerId?: string, prePhoto?: StoredPhoto | null, isVisual?: boolean): Promise<string> {
+  async processQuery(query: string, speakerId?: string, prePhoto?: StoredPhoto | null, isVisual?: boolean): Promise<QueryResult> {
     const session = this.user.appSession;
     if (!session) {
       console.error(`No active session for ${this.user.userId}`);
-      return "I'm not connected to your glasses right now.";
+      return { response: "I'm not connected to your glasses right now.", ttsComplete: Promise.resolve() };
     }
 
     const pipelineStart = Date.now();
@@ -123,8 +132,8 @@ export class QueryProcessor {
       });
       broadcastChatEvent(this.user.userId, { type: "idle" });
 
-      await this.outputResponse(errorMsg, hasSpeakers, hasDisplay);
-      return errorMsg;
+      const ttsComplete = this.outputResponse(errorMsg, hasSpeakers, hasDisplay);
+      return { response: errorMsg, ttsComplete };
     }
 
     // Broadcast user message to frontend (with photo if available)
@@ -224,10 +233,10 @@ export class QueryProcessor {
       context.hasDisplay
     );
 
-    // Step 7: Stop processing sound loop and output response
+    // Step 7: Stop processing sound loop and start output (don't await — TranscriptionManager controls TTS lifecycle for interrupt support)
     this.stopProcessingSound();
-    await this.outputResponse(formattedResponse, context.hasSpeakers, context.hasDisplay);
-    lap('OUTPUT-TO-GLASSES');
+    const ttsComplete = this.outputResponse(formattedResponse, context.hasSpeakers, context.hasDisplay);
+    lap('OUTPUT-TO-GLASSES-STARTED');
 
     // Update photo analysis with LLM response (fire-and-forget)
     if (photoId) {
@@ -245,7 +254,7 @@ export class QueryProcessor {
 
     console.log(`⏱️ [PIPELINE-DONE] Total: ${Date.now() - pipelineStart}ms`);
 
-    return response;
+    return { response, ttsComplete };
   }
 
   /**

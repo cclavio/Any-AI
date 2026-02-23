@@ -1,11 +1,13 @@
 import type { AppSession, TranscriptionData } from "@mentra/sdk";
 import type { User } from "../session/User";
 import type { StoredPhoto } from "./PhotoManager";
+import type { QueryResult } from "./QueryProcessor";
 import { detectWakeWord, removeWakeWord } from "../utils/wake-word";
 import { isVisualQuery } from "../agent/visual-classifier";
 import { classifyDeviceCommand, type DeviceCommand } from "../agent/device-commands";
 import { classifyCloser } from "../agent/conversational-closers";
-import { getDefaultSoundUrl } from "../constants/config";
+import { isComprehensionFailure } from "../agent/comprehension-failure";
+import { getDefaultSoundUrl, COMPREHENSION_SETTINGS } from "../constants/config";
 
 interface SSEWriter {
   write: (data: string) => void;
@@ -17,7 +19,7 @@ interface SSEWriter {
  * Callback signature for when a query is ready to be processed.
  * Includes pre-captured photo (taken at wake word time) and visual classification.
  */
-export type OnQueryReadyCallback = (query: string, speakerId?: string, prePhoto?: StoredPhoto | null, isVisual?: boolean) => Promise<void>;
+export type OnQueryReadyCallback = (query: string, speakerId?: string, prePhoto?: StoredPhoto | null, isVisual?: boolean) => Promise<QueryResult>;
 
 /**
  * Callback for when a device command (e.g. "take a photo") is detected.
@@ -43,6 +45,9 @@ export class TranscriptionManager {
   // State
   private isListening: boolean = false;
   private isProcessing: boolean = false;
+  private isSpeaking: boolean = false;
+  private interruptedTTS: boolean = false;
+  private failedComprehensionCount: number = 0;
   private activeSpeakerId: string | undefined = undefined;
 
   // Transcript accumulation
@@ -67,7 +72,7 @@ export class TranscriptionManager {
   private maxListeningTimeout: NodeJS.Timeout | undefined;
 
   // Config
-  private readonly SILENCE_TIMEOUT_MS = 1500;  // 1.5s silence = query complete
+  private readonly SILENCE_TIMEOUT_MS = 3000;  // 3s silence = query complete
   private readonly MAX_LISTENING_MS = 15000;   // 15s max listening time
   private readonly FOLLOW_UP_WINDOW_MS = 10000; // 10s window for follow-up questions
 
@@ -140,9 +145,17 @@ export class TranscriptionManager {
     // Broadcast to SSE clients
     this.broadcast(text, isFinal ?? false);
 
-    // Ignore if we're currently processing a query
-    if (this.isProcessing) {
+    // During AI generation (before TTS), ignore entirely
+    if (this.isProcessing && !this.isSpeaking) {
       return;
+    }
+
+    // During TTS playback, speech = interrupt
+    if (this.isProcessing && this.isSpeaking && isFinal && text.trim().length > 0) {
+      console.log(`🔇 TTS interrupt: "${text.slice(0, 40)}"`);
+      this.interruptedTTS = true;
+      this.user.appSession?.audio.stopAudio(2);
+      // Fall through to accumulate transcript
     }
 
     // If we're listening to a specific speaker, ignore others
@@ -158,8 +171,6 @@ export class TranscriptionManager {
         clearTimeout(this.followUpTimeout);
         this.followUpTimeout = undefined;
       }
-      // Play start sound to acknowledge follow-up input
-      this.playStartSound();
     }
 
     // Check for wake word (use user's custom wake word if configured)
@@ -253,8 +264,16 @@ export class TranscriptionManager {
     if (this.isProcessing) return;
 
     const query = this.currentTranscript.trim();
+
+    // Empty query → comprehension failure (silence after wake word)
     if (!query) {
-      this.resetState();
+      this.failedComprehensionCount++;
+      console.log(`🔇 Empty transcript — comprehension failure ${this.failedComprehensionCount}/${COMPREHENSION_SETTINGS.maxConsecutiveFailures}`);
+      if (this.failedComprehensionCount >= COMPREHENSION_SETTINGS.maxConsecutiveFailures) {
+        await this.handleComprehensionAutoClose();
+        return;
+      }
+      this.enterFollowUpMode();
       return;
     }
 
@@ -337,20 +356,82 @@ export class TranscriptionManager {
       return;
     }
 
+    // AI call — get QueryResult instead of void
+    let queryResult: QueryResult | undefined;
     try {
       if (this.onQueryReady) {
-        await this.onQueryReady(query, this.activeSpeakerId, prePhoto, isVisual);
+        queryResult = await this.onQueryReady(query, this.activeSpeakerId, prePhoto, isVisual);
       }
     } catch (error) {
       console.error('Error processing query:', error);
-    } finally {
-      // Enter follow-up mode so user can ask more questions without wake word
-      if (!this.destroyed) {
-        this.enterFollowUpMode();
+      this.failedComprehensionCount++;
+    }
+
+    // Check response for comprehension failure
+    if (queryResult?.response) {
+      if (isComprehensionFailure(queryResult.response)) {
+        this.failedComprehensionCount++;
+        console.log(`🔇 Agent comprehension failure ${this.failedComprehensionCount}/${COMPREHENSION_SETTINGS.maxConsecutiveFailures}: "${queryResult.response.slice(0, 60)}"`);
       } else {
-        this.resetState();
+        this.failedComprehensionCount = 0; // success resets counter
       }
     }
+
+    // Check threshold — auto-close after too many consecutive failures
+    if (this.failedComprehensionCount >= COMPREHENSION_SETTINGS.maxConsecutiveFailures) {
+      // Wait for current TTS to finish before auto-close message
+      if (queryResult?.ttsComplete) {
+        await queryResult.ttsComplete.catch(() => {});
+      }
+      await this.handleComprehensionAutoClose();
+      return;
+    }
+
+    // Bail if session destroyed during AI processing
+    if (this.destroyed) {
+      this.resetState();
+      return;
+    }
+
+    // Enable mic during TTS for interrupt support
+    this.isSpeaking = true;
+    this.isListening = true;
+    this.interruptedTTS = false;
+    this.currentTranscript = '';
+
+    // Green LED
+    this.user.appSession?.led.solid("green", 2000).catch(() => {});
+
+    // Wait for TTS to complete (or be interrupted)
+    if (queryResult?.ttsComplete) {
+      await queryResult.ttsComplete.catch(() => {});
+    }
+    this.isSpeaking = false;
+
+    // Bail if session destroyed during TTS
+    if (this.destroyed) {
+      this.resetState();
+      return;
+    }
+
+    // Handle interrupt vs normal follow-up
+    if (this.interruptedTTS) {
+      // User's interrupt speech is already accumulating in currentTranscript
+      console.log(`🔇 Processing interrupted speech: "${this.currentTranscript.slice(0, 40)}"`);
+      this.interruptedTTS = false;
+      this.isProcessing = false;
+      this.resetSilenceTimeout();
+      // Set max listening timeout for the new utterance
+      this.maxListeningTimeout = setTimeout(() => {
+        if (this.isListening && !this.isProcessing) {
+          console.log(`⏰ Max listening time reached (post-interrupt)`);
+          this.processCurrentQuery();
+        }
+      }, this.MAX_LISTENING_MS);
+      return;
+    }
+
+    this.enterFollowUpMode();
   }
 
   /**
@@ -359,21 +440,16 @@ export class TranscriptionManager {
    */
   private enterFollowUpMode(): void {
     this.isProcessing = false;
-    this.isListening = true;
     this.isFollowUpMode = true;
+    // isListening already true, LED already shown by processCurrentQuery
+    this.isListening = true;
     this.currentTranscript = '';
     this.transcriptionStartTime = Date.now();
     this.pendingPhoto = null;
     this.clearTimers();
 
-    // Visual feedback: green LED for 2s
-    if (this.user.appSession) {
-      this.user.appSession.led.solid("green", 2000).catch((err) => {
-        console.debug('Follow-up LED failed:', err);
-      });
-    }
-
-    // Follow-up window — if no speech in 5s, return to IDLE and end exchange
+    // Follow-up window — if no speech in 10s, return to IDLE and end exchange
+    // Timer starts AFTER TTS finishes (not during)
     this.followUpTimeout = setTimeout(() => {
       if (this.isFollowUpMode && !this.isProcessing) {
         console.log(`⏰ Follow-up window expired for ${this.user.userId}, returning to IDLE`);
@@ -394,11 +470,31 @@ export class TranscriptionManager {
   }
 
   /**
+   * Auto-close exchange after repeated comprehension failures.
+   * Speaks a friendly message and returns to IDLE.
+   */
+  private async handleComprehensionAutoClose(): Promise<void> {
+    console.log(`🔇 Comprehension auto-close for ${this.user.userId} after ${this.failedComprehensionCount} failures`);
+    if (this.user.appSession) {
+      try {
+        await this.user.appSession.audio.speak(COMPREHENSION_SETTINGS.autoCloseMessage);
+      } catch (err) {
+        console.debug('Comprehension auto-close speech failed:', err);
+      }
+    }
+    await this.user.exchange.endExchange("comprehension_failure").catch(console.error);
+    this.resetState();
+  }
+
+  /**
    * Reset state to idle
    */
   private resetState(): void {
     this.isListening = false;
     this.isProcessing = false;
+    this.isSpeaking = false;
+    this.interruptedTTS = false;
+    this.failedComprehensionCount = 0;
     this.isFollowUpMode = false;
     this.activeSpeakerId = undefined;
     this.currentTranscript = '';
