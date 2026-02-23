@@ -19,6 +19,16 @@ bun.lock
 # Drizzle (generated migrations are committed, but local kit state is not)
 drizzle/meta/_journal.json.bak
 
+# Claude Code project guide (local only)
+CLAUDE.md
+
+# Implementation plans, reference images, and dev notes (local only)
+.plans/
+.refs/
+.mentra-requests/
+FEATURE_IDEAS.md
+MIGRATIONS.md
+
 # Logs
 *.log
 npm-debug.log*
