@@ -7,7 +7,7 @@
 
 import { generateText, stepCountIs } from "ai";
 import type { LanguageModel } from "ai";
-import { searchTool, calculatorTool, thinkingTool, createPlacesTool, createDirectionsTool } from "./tools";
+import { calculatorTool, thinkingTool, createPlacesTool, createDirectionsTool, resolveSearchTools } from "./tools";
 import { buildSystemPrompt, classifyResponseMode, type AgentContext } from "./prompt";
 import { ResponseMode, AGENT_SETTINGS } from "../constants/config";
 import { resolveLLMModel } from "./providers/registry";
@@ -165,7 +165,17 @@ export async function generateResponse(options: GenerateOptions): Promise<Genera
         },
       ],
       tools: {
-        search: searchTool,
+        // Provider-native web search (falls back to Jina for unsupported models)
+        ...resolveSearchTools({
+          provider: config.llmProvider,
+          modelId: config.llmModel,
+          apiKey: config.llmApiKey,
+          location: context.location ? {
+            city: context.location.city,
+            region: context.location.state,
+            country: context.location.country,
+          } : undefined,
+        }),
         calculator: calculatorTool,
         thinking: thinkingTool,
         // Location-aware tools — only available when GPS is active AND Google Cloud key is configured

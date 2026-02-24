@@ -30,7 +30,7 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
 - **Vision** — Answers questions about what you're seeing (smart photo capture with shutter sound feedback)
 - **Photo persistence** — All photos are logged to Postgres; voice command photos ("take a photo") are also uploaded to Supabase Storage, while visual query photos are analysis-only with the LLM response stored alongside. Conversation turns link to their photo via FK.
-- **Web search** — Real-time search with concise summaries via Jina
+- **Web search** — Provider-native web search (Anthropic, OpenAI, Google) with automatic fallback to Jina for models without native search support
 - **Location services** — Nearby places, directions, weather, air quality, and pollen data (optional Google Cloud API key)
 - **Battery check** — Ask "what's my battery?" for instant glasses battery level and charging status
 - **Calendar aware** — Receives calendar events from your phone; ask "what's my schedule?" for an instant readout, or ask the AI questions like "when is my next meeting?"
@@ -94,6 +94,7 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **Smart silence** — Silence timeout increased to 3 seconds so users aren't cut off mid-thought when pausing
 - **Comprehension auto-close** — Regex-based `isComprehensionFailure()` classifier detects "I didn't catch that" LLM responses. Two consecutive failures (empty transcript or agent repeat) trigger a friendly auto-close message and end the exchange with `comprehension_failure` end reason
 - **Notification intelligence** — `NotificationManager` rewritten from `unknown`-typed stub to fully typed `PhoneNotification` handler with in-memory Map + `user_context` DB persistence (4-hour TTL). `onPhoneNotificationDismissed` wired to auto-remove stale entries. AI prompt shows notifications grouped by app with priority indicators. "Check my notifications" voice command gives instant spoken readout. Hydrates from DB on restart.
+- **Native web search** — Provider-native web search tools replace the Jina HTTP tool for all supported models. `resolveSearchTools()` checks `ModelInfo.supportsWebSearch` in the catalog and creates Anthropic `webSearch_20250305`, OpenAI `webSearch`, or Google `googleSearch` tools with user location forwarding. Models without native support fall back to Jina. `JINA_API_KEY` is no longer required when using native search.
 
 ### Supported Models
 

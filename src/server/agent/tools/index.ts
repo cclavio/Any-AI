@@ -3,6 +3,7 @@
  */
 
 export { searchTool } from "./search.tool";
+export { resolveSearchTools } from "./native-search";
 export { calculatorTool } from "./calculator.tool";
 export { thinkingTool } from "./thinking.tool";
 export { createPlacesTool } from "./places.tool";

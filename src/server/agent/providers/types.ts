@@ -14,6 +14,7 @@ export interface ModelInfo {
   name: string;
   provider: Provider;
   supportsVision: boolean;
+  supportsWebSearch: boolean;
   contextWindow: number;
 }
 
@@ -21,29 +22,29 @@ export interface ModelInfo {
 export const MODEL_CATALOG: Record<Provider, ModelInfo[]> = {
   openai: [
     // GPT-5 family (current generation)
-    { id: "gpt-5.2",      name: "GPT-5.2",       provider: "openai", supportsVision: true,  contextWindow: 400000 },
-    { id: "gpt-5.1",      name: "GPT-5.1",       provider: "openai", supportsVision: true,  contextWindow: 400000 },
-    { id: "gpt-5",        name: "GPT-5",         provider: "openai", supportsVision: true,  contextWindow: 400000 },
-    { id: "gpt-5-mini",   name: "GPT-5 Mini",    provider: "openai", supportsVision: true,  contextWindow: 400000 },
+    { id: "gpt-5.2",      name: "GPT-5.2",       provider: "openai", supportsVision: true,  supportsWebSearch: true,  contextWindow: 400000 },
+    { id: "gpt-5.1",      name: "GPT-5.1",       provider: "openai", supportsVision: true,  supportsWebSearch: true,  contextWindow: 400000 },
+    { id: "gpt-5",        name: "GPT-5",         provider: "openai", supportsVision: true,  supportsWebSearch: true,  contextWindow: 400000 },
+    { id: "gpt-5-mini",   name: "GPT-5 Mini",    provider: "openai", supportsVision: true,  supportsWebSearch: true,  contextWindow: 400000 },
     // GPT-4 family (legacy, still available)
-    { id: "gpt-4o",       name: "GPT-4o",        provider: "openai", supportsVision: true,  contextWindow: 128000 },
-    { id: "gpt-4o-mini",  name: "GPT-4o Mini",   provider: "openai", supportsVision: true,  contextWindow: 128000 },
-    { id: "gpt-4.1",      name: "GPT-4.1",       provider: "openai", supportsVision: true,  contextWindow: 1047576 },
-    { id: "gpt-4.1-mini", name: "GPT-4.1 Mini",  provider: "openai", supportsVision: true,  contextWindow: 1047576 },
+    { id: "gpt-4o",       name: "GPT-4o",        provider: "openai", supportsVision: true,  supportsWebSearch: true,  contextWindow: 128000 },
+    { id: "gpt-4o-mini",  name: "GPT-4o Mini",   provider: "openai", supportsVision: true,  supportsWebSearch: true,  contextWindow: 128000 },
+    { id: "gpt-4.1",      name: "GPT-4.1",       provider: "openai", supportsVision: true,  supportsWebSearch: true,  contextWindow: 1047576 },
+    { id: "gpt-4.1-mini", name: "GPT-4.1 Mini",  provider: "openai", supportsVision: true,  supportsWebSearch: true,  contextWindow: 1047576 },
   ],
   anthropic: [
     // Claude 4.6 (current generation)
-    { id: "claude-opus-4-6",             name: "Claude Opus 4.6",   provider: "anthropic", supportsVision: true, contextWindow: 200000 },
-    { id: "claude-sonnet-4-6",           name: "Claude Sonnet 4.6", provider: "anthropic", supportsVision: true, contextWindow: 200000 },
+    { id: "claude-opus-4-6",             name: "Claude Opus 4.6",   provider: "anthropic", supportsVision: true, supportsWebSearch: true, contextWindow: 200000 },
+    { id: "claude-sonnet-4-6",           name: "Claude Sonnet 4.6", provider: "anthropic", supportsVision: true, supportsWebSearch: true, contextWindow: 200000 },
     // Claude 4.5 (previous generation)
-    { id: "claude-sonnet-4-5-20250929",  name: "Claude Sonnet 4.5", provider: "anthropic", supportsVision: true, contextWindow: 200000 },
-    { id: "claude-haiku-4-5-20251001",   name: "Claude Haiku 4.5",  provider: "anthropic", supportsVision: true, contextWindow: 200000 },
+    { id: "claude-sonnet-4-5-20250929",  name: "Claude Sonnet 4.5", provider: "anthropic", supportsVision: true, supportsWebSearch: true, contextWindow: 200000 },
+    { id: "claude-haiku-4-5-20251001",   name: "Claude Haiku 4.5",  provider: "anthropic", supportsVision: true, supportsWebSearch: true, contextWindow: 200000 },
   ],
   google: [
     // Gemini 2.5 (current stable)
-    { id: "gemini-2.5-flash",      name: "Gemini 2.5 Flash",      provider: "google", supportsVision: true, contextWindow: 1048576 },
-    { id: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite", provider: "google", supportsVision: true, contextWindow: 1048576 },
-    { id: "gemini-2.5-pro",        name: "Gemini 2.5 Pro",        provider: "google", supportsVision: true, contextWindow: 1048576 },
+    { id: "gemini-2.5-flash",      name: "Gemini 2.5 Flash",      provider: "google", supportsVision: true, supportsWebSearch: true, contextWindow: 1048576 },
+    { id: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite", provider: "google", supportsVision: true, supportsWebSearch: true, contextWindow: 1048576 },
+    { id: "gemini-2.5-pro",        name: "Gemini 2.5 Pro",        provider: "google", supportsVision: true, supportsWebSearch: true, contextWindow: 1048576 },
   ],
 };
 
@@ -96,4 +97,12 @@ export const DEFAULT_AI_CONFIG: Omit<UserAIConfig, "llmApiKey" | "visionApiKey">
 export function getModelDisplayName(provider: Provider, modelId: string): string {
   const models = MODEL_CATALOG[provider];
   return models?.find(m => m.id === modelId)?.name ?? modelId;
+}
+
+/**
+ * Check if a model supports provider-native web search.
+ */
+export function modelSupportsWebSearch(provider: Provider, modelId: string): boolean {
+  const models = MODEL_CATALOG[provider];
+  return models?.find(m => m.id === modelId)?.supportsWebSearch ?? false;
 }

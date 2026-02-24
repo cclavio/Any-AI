@@ -200,7 +200,7 @@ export class QueryProcessor {
         context,
         aiConfig: this.user.aiConfig,
         onToolCall: (toolName) => {
-          if (toolName === 'search') {
+          if (toolName === 'search' || toolName === 'web_search' || toolName === 'google_search') {
             this.showStatus("Searching...", hasDisplay);
           }
         },
