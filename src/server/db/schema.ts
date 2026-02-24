@@ -107,6 +107,7 @@ export const photos = pgTable("photos", {
   sizeBytes: integer("size_bytes").notNull(),
   saved: boolean("saved").notNull().default(false),
   analysis: text("analysis"),
+  tags: text("tags").array().default([]),
   capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

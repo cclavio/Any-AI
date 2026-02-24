@@ -29,7 +29,7 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Multi-provider** — Choose between OpenAI, Anthropic, or Google
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
 - **Vision** — Answers questions about what you're seeing (smart photo capture with shutter sound feedback)
-- **Photo persistence** — All photos are logged to Postgres; voice command photos ("take a photo") are also uploaded to Supabase Storage, while visual query photos are analysis-only with the LLM response stored alongside. Conversation turns link to their photo via FK.
+- **Photo intelligence** — All photos are automatically analyzed by the vision model and tagged. Voice command photos ("take a photo") are uploaded to Supabase Storage and get vision analysis + auto-generated tags. Visual query photos store the LLM response as analysis. The last 24 hours of photos (with tags and summaries) are injected into the AI's context, so you can ask "what was in that photo?" without retaking it. Photos missing analysis are backfilled lazily on the next query.
 - **Web search** — Provider-native web search (Anthropic, OpenAI, Google) with automatic fallback to Jina for models without native search support
 - **Location services** — Nearby places, directions, weather, air quality, and pollen data (optional Google Cloud API key)
 - **Battery check** — Ask "what's my battery?" for instant glasses battery level and charging status
@@ -95,6 +95,7 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **Comprehension auto-close** — Regex-based `isComprehensionFailure()` classifier detects "I didn't catch that" LLM responses. Two consecutive failures (empty transcript or agent repeat) trigger a friendly auto-close message and end the exchange with `comprehension_failure` end reason
 - **Notification intelligence** — `NotificationManager` rewritten from `unknown`-typed stub to fully typed `PhoneNotification` handler with in-memory Map + `user_context` DB persistence (4-hour TTL). `onPhoneNotificationDismissed` wired to auto-remove stale entries. AI prompt shows notifications grouped by app with priority indicators. "Check my notifications" voice command gives instant spoken readout. Hydrates from DB on restart.
 - **Native web search** — Provider-native web search tools replace the Jina HTTP tool for all supported models. `resolveSearchTools()` checks `ModelInfo.supportsWebSearch` in the catalog and creates Anthropic `webSearch_20250305`, OpenAI `webSearch`, or Google `googleSearch` tools with user location forwarding. Models without native support fall back to Jina. `JINA_API_KEY` is no longer required when using native search.
+- **Photo intelligence** — `photo-analysis.ts` module provides `analyzePhoto()` (vision model analysis), `generatePhotoTags()` (LLM tag extraction from analysis text), `ensurePhotoAnalyzed()` (lazy backfill for photos missing analysis/tags), and `getRecentPhotosForPrompt()` (24h photo context for system prompt). Voice command photos now get automatic vision analysis + tagging via fire-and-forget chain in `DeviceCommandHandler`. Visual query photos get tags extracted from the LLM response. System prompt includes a "Recent Photos" section with relative timestamps, tags, and truncated analysis.
 
 ### Supported Models
 
@@ -135,7 +136,8 @@ src/
 │   │   ├── ExchangeManager.ts       # Exchange lifecycle (start/end) + async tag generation
 │   │   ├── LocationManager.ts        # GPS, geocoding, weather, air quality, pollen, timezone
 │   │   ├── QueryProcessor.ts         # Query pipeline (transcription → agent → TTS)
-│   │   └── TranscriptionManager.ts   # Wake word, closers, device commands, follow-up mode, exchange hooks
+│   │   ├── TranscriptionManager.ts   # Wake word, closers, device commands, follow-up mode, exchange hooks
+│   │   └── photo-analysis.ts         # Photo analysis (vision), tag generation (LLM), backfill, prompt context
 │   ├── routes/routes.ts              # Hono routes + SDK auth middleware
 │   ├── api/settings.ts               # Settings + provider config handlers
 │   └── session/User.ts               # Per-user state + aiConfig from DB/Vault

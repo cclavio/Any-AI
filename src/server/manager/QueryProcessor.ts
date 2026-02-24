@@ -13,6 +13,7 @@ import { formatForTTS } from "../utils/tts-formatter";
 import { getDefaultSoundUrl } from "../constants/config";
 import { isDbAvailable, db, photos } from "../db";
 import { eq } from "drizzle-orm";
+import { generatePhotoTags, getRecentPhotosForPrompt } from "./photo-analysis";
 
 const PROCESSING_SOUND_URL = process.env.PROCESSING_SOUND_URL || getDefaultSoundUrl('processing.mp3');
 
@@ -171,8 +172,9 @@ export class QueryProcessor {
     // Step 4: Build agent context (using snapshotted capabilities from pipeline start)
     const hasPhotos = photoDataUrl !== undefined; // current query's photo, not stale ones
 
-    // Load exchange-grouped history for prompt context
+    // Load exchange-grouped history and recent photos for prompt context
     const exchangeGroups = await this.user.chatHistory.getHistoryGroupedByExchange();
+    const recentPhotos = await getRecentPhotosForPrompt(this.user.userId, this.user.aiConfig).catch(() => []);
 
     const context: GenerateOptions["context"] = {
       hasDisplay,
@@ -187,6 +189,7 @@ export class QueryProcessor {
       calendar: this.user.calendar.formatForPrompt(),
       conversationHistory: this.user.chatHistory.getRecentTurns(),
       exchangeGroups,
+      recentPhotos,
     };
     lap('BUILD-CONTEXT');
 
@@ -238,9 +241,16 @@ export class QueryProcessor {
     const ttsComplete = this.outputResponse(formattedResponse, context.hasSpeakers, context.hasDisplay);
     lap('OUTPUT-TO-GLASSES-STARTED');
 
-    // Update photo analysis with LLM response (fire-and-forget)
+    // Update photo analysis with LLM response, then generate tags (fire-and-forget)
     if (photoId) {
-      this.updatePhotoAnalysis(photoId, response).catch((err) => {
+      this.updatePhotoAnalysis(photoId, response).then(() => {
+        const aiConfig = this.user.aiConfig;
+        if (aiConfig?.isConfigured) {
+          generatePhotoTags(photoId, response, aiConfig).catch((err) => {
+            console.warn(`📸 [QP] Tag generation failed for ${photoId}:`, err);
+          });
+        }
+      }).catch((err) => {
         console.error(`📸 [QP] Photo analysis update failed for ${this.user.userId}:`, err);
       });
     }

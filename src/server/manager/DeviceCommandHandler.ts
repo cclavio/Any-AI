@@ -4,6 +4,8 @@ import type { PhotoData } from "@mentra/sdk";
 import { getDefaultSoundUrl } from "../constants/config";
 import { isDbAvailable, db, photos } from "../db";
 import { isStorageAvailable, buildStoragePath, uploadPhoto } from "../db/storage";
+import { analyzePhoto, generatePhotoTags } from "./photo-analysis";
+import { eq } from "drizzle-orm";
 
 /**
  * DeviceCommandHandler — executes hardware device commands
@@ -51,9 +53,9 @@ export class DeviceCommandHandler {
       });
       console.log(`📸 [DEVICE-CMD] Photo captured for ${this.user.userId}: ${photo.requestId} (${photo.size} bytes)`);
 
-      // Fire-and-forget: persist to Supabase Storage + DB
-      this.persistPhoto(photo).catch((err) => {
-        console.error(`📸 [DEVICE-CMD] Photo persist failed for ${this.user.userId}:`, err);
+      // Fire-and-forget: persist → analyze → tag
+      this.persistAndAnalyze(photo).catch((err) => {
+        console.error(`📸 [DEVICE-CMD] Photo pipeline failed for ${this.user.userId}:`, err);
       });
 
       return "Photo saved";
@@ -79,17 +81,17 @@ export class DeviceCommandHandler {
 
   /**
    * Persist a photo to Supabase Storage + insert metadata row.
-   * Called fire-and-forget — errors are logged but don't block the voice response.
+   * Returns the photo row UUID, or undefined if storage/DB unavailable.
    */
-  private async persistPhoto(photo: PhotoData): Promise<void> {
-    if (!isStorageAvailable() || !isDbAvailable()) return;
+  private async persistPhoto(photo: PhotoData): Promise<string | undefined> {
+    if (!isStorageAvailable() || !isDbAvailable()) return undefined;
 
     const userId = this.user.userId;
     const storagePath = buildStoragePath(userId, photo.requestId, photo.timestamp, photo.mimeType);
 
     await uploadPhoto(storagePath, photo.buffer, photo.mimeType);
 
-    await db.insert(photos).values({
+    const [row] = await db.insert(photos).values({
       userId,
       requestId: photo.requestId,
       storagePath,
@@ -98,9 +100,34 @@ export class DeviceCommandHandler {
       sizeBytes: photo.size,
       saved: true,
       capturedAt: photo.timestamp,
-    });
+    }).returning({ id: photos.id });
 
     console.log(`📸 [DEVICE-CMD] Photo persisted: ${storagePath}`);
+    return row.id;
+  }
+
+  /**
+   * Persist, then analyze and tag the photo (fire-and-forget chain).
+   */
+  private async persistAndAnalyze(photo: PhotoData): Promise<void> {
+    const photoId = await this.persistPhoto(photo);
+    if (!photoId) return;
+
+    const aiConfig = this.user.aiConfig;
+    if (!aiConfig?.isConfigured) return;
+
+    // Step 1: Vision analysis
+    const analysis = await analyzePhoto(photo.buffer, aiConfig);
+    if (!analysis) return;
+
+    // Update analysis on DB row
+    await db.update(photos).set({ analysis }).where(eq(photos.id, photoId));
+    console.log(`📸 [DEVICE-CMD] Photo analyzed: ${photoId}`);
+
+    // Step 2: Generate tags from analysis (fire-and-forget)
+    generatePhotoTags(photoId, analysis, aiConfig).catch((err) => {
+      console.warn(`📸 [DEVICE-CMD] Tag generation failed for ${photoId}:`, err);
+    });
   }
 
   /**

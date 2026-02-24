@@ -64,6 +64,23 @@ export const PHOTO_SETTINGS = {
 };
 
 /**
+ * Photo analysis and tagging settings
+ */
+export const PHOTO_ANALYSIS_SETTINGS = {
+  /** Vision analysis prompt for voice command photos */
+  analysisPrompt: "Describe what you see in this photo in 2-3 sentences. Focus on the main subject, any text visible, and notable details. Be specific and factual.",
+  analysisMaxTokens: 200,
+  /** Tag generation from analysis text */
+  minTags: 2,
+  maxTags: 5,
+  tagMaxTokens: 100,
+  /** Recent photos injected into system prompt */
+  recentPhotosWindowMs: 24 * 60 * 60 * 1000,  // 24 hours
+  recentPhotosMax: 10,
+  analysisTruncateChars: 150,
+};
+
+/**
  * Agent settings
  */
 export const AGENT_SETTINGS = {

@@ -8,6 +8,7 @@
 import { ResponseMode, WORD_LIMITS } from "../constants/config";
 import type { LocationContext } from "../manager/LocationManager";
 import type { ConversationTurn, ExchangeGroup } from "../manager/ChatHistoryManager";
+import type { RecentPhoto } from "../manager/photo-analysis";
 import type { UserAIConfig } from "./providers/types";
 import { PROVIDER_DISPLAY_NAMES } from "./providers/types";
 
@@ -34,6 +35,7 @@ export interface AgentContext {
   calendar: string;
   conversationHistory: ConversationTurn[];
   exchangeGroups?: ExchangeGroup[];
+  recentPhotos?: RecentPhoto[];
 
   // User's AI configuration
   aiConfig?: UserAIConfig;
@@ -298,6 +300,11 @@ function buildContextSection(context: AgentContext): string {
     sections.push(context.notifications);
   }
 
+  // Recent photos with tags and analysis
+  if (context.recentPhotos && context.recentPhotos.length > 0) {
+    sections.push(formatRecentPhotosForPrompt(context.recentPhotos));
+  }
+
   // Conversation history — prefer exchange-grouped format when available
   if (context.exchangeGroups && context.exchangeGroups.length > 0) {
     sections.push(formatExchangeGroupsForPrompt(context.exchangeGroups, context.localTime, context.timezone));
@@ -454,6 +461,33 @@ function getHourInTimezone(date: Date, timezone?: string): number {
   const opts: Intl.DateTimeFormatOptions = { hour: "numeric", hour12: false };
   if (timezone) opts.timeZone = timezone;
   return parseInt(date.toLocaleTimeString("en-US", opts), 10);
+}
+
+/**
+ * Format recent photos for the system prompt.
+ * Shows tags + truncated analysis so the AI can reference past photos.
+ */
+function formatRecentPhotosForPrompt(photos: RecentPhoto[]): string {
+  const lines = ["**Recent Photos (last 24h):**"];
+  for (const photo of photos) {
+    const timeAgo = formatTimeAgo(photo.capturedAt);
+    const tagStr = photo.tags.length > 0 ? ` [${photo.tags.join(", ")}]` : "";
+    const type = photo.saved ? "saved" : "query";
+    lines.push(`- ${timeAgo}${tagStr} (${type}): ${photo.analysis}`);
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Format a timestamp as a human-readable relative time (e.g., "5 min ago", "2h ago").
+ */
+function formatTimeAgo(date: Date): string {
+  const diffMs = Date.now() - date.getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  return `${hours}h ago`;
 }
 
 /**

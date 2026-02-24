@@ -15,6 +15,7 @@ import type { UserAIConfig } from "./providers/types";
 import { DEFAULT_AI_CONFIG, getModelDisplayName } from "./providers/types";
 import type { LocationContext } from "../manager/LocationManager";
 import type { ConversationTurn, ExchangeGroup } from "../manager/ChatHistoryManager";
+import type { RecentPhoto } from "../manager/photo-analysis";
 
 // Re-export for consumers
 export type { UserAIConfig } from "./providers/types";
@@ -48,6 +49,7 @@ export interface GenerateOptions {
     calendar: string;
     conversationHistory: ConversationTurn[];
     exchangeGroups?: ExchangeGroup[];
+    recentPhotos?: RecentPhoto[];
   };
   aiConfig?: UserAIConfig;
   onToolCall?: (toolName: string) => void;
@@ -117,6 +119,7 @@ export async function generateResponse(options: GenerateOptions): Promise<Genera
     calendar: context.calendar,
     conversationHistory: context.conversationHistory,
     exchangeGroups: context.exchangeGroups,
+    recentPhotos: context.recentPhotos,
     aiConfig: config,
     googleCloudConfigured: !!config.googleCloudApiKey,
   };
