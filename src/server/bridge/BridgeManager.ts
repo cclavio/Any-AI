@@ -9,7 +9,7 @@
 
 import type { User } from "../session/User";
 import type { BridgeNotifyResponse, ParkedRequest } from "./types";
-import { classifyBridgeDeferral } from "./bridge-commands";
+import { classifyBridgeDeferral, classifyBridgeAcceptance } from "./bridge-commands";
 import { db } from "../db/client";
 import { bridgeRequests } from "../db/schema";
 
@@ -30,7 +30,12 @@ export class BridgeManager {
 
   /**
    * Handle a notify request from Claude Code.
-   * Speaks the message, listens for response, parks if user is busy.
+   *
+   * Two-stage flow:
+   *   1. ANNOUNCE: "You have a message from Claude Code" → listen for accept/defer
+   *   2. DELIVER:  Speak the full message → listen for the user's actual response
+   *
+   * Parks if the user defers or stays silent at either stage.
    * Returns a Promise that resolves when the user responds or timeout expires.
    */
   handleNotify(
@@ -54,65 +59,92 @@ export class BridgeManager {
     const conversationId = this.conversationId;
 
     return new Promise<BridgeNotifyResponse>((resolve, reject) => {
-      // Display on HUD
-      session.layouts.showTextWall(message, { durationMs: 10000 });
+      // --- Stage 2: Deliver the full message and collect the response ---
+      const deliverMessage = () => {
+        console.log(`📬 [BRIDGE] Delivering message for ${this.user.userId}`);
+        session.layouts.showTextWall(message, { durationMs: 10000 });
 
-      // Speak through glasses (non-fatal — still set up listening even if TTS fails)
-      const setupListening = () => {
-        // Set up first-attempt callback — intercepted by TranscriptionManager
-        this.user.transcription.bridgeResponseCallback = (transcript: string) => {
-          const deferral = classifyBridgeDeferral(transcript);
+        const setupResponseListening = () => {
+          this.user.transcription.bridgeResponseCallback = (transcript: string) => {
+            const deferral = classifyBridgeDeferral(transcript);
 
-          if (!transcript || deferral) {
-            // User is busy or silence — PARK the request, keep Promise open
-            this.parkRequest(requestId, message, conversationId, resolve, reject, timeoutMs);
-            session.audio.speak("Ok, say 'I'm ready' when you want to respond.").catch(() => {});
-            // DO NOT resolve — HTTP connection stays open
-          } else {
-            // User responded immediately — clear timeout and resolve
-            if (this._pendingTimeoutTimer) {
-              clearTimeout(this._pendingTimeoutTimer);
-              this._pendingTimeoutTimer = null;
+            if (!transcript || deferral) {
+              // User deferred after hearing the message — park
+              this.parkRequest(requestId, message, conversationId, resolve, reject, timeoutMs);
+              session.audio.speak("Ok, say 'I'm ready' when you want to respond.").catch(() => {});
+            } else {
+              // Got the actual response — resolve
+              if (this._pendingTimeoutTimer) {
+                clearTimeout(this._pendingTimeoutTimer);
+                this._pendingTimeoutTimer = null;
+              }
+              this.logRequest(requestId, message, transcript, conversationId, "responded");
+              resolve({
+                status: "responded",
+                requestId,
+                transcript,
+                conversationId,
+              });
             }
-            this.logRequest(requestId, message, transcript, conversationId, "responded");
-            resolve({
-              status: "responded",
-              requestId,
-              transcript,
-              conversationId,
-            });
-          }
+          };
+          this.user.transcription.activateListening();
         };
 
-        // Activate listening to collect the response
+        // Speak the full message, then listen for the response
+        this.speakSafe(session, `Claude says: ${message}`, setupResponseListening);
+      };
+
+      // --- Stage 1: Announce that a message has arrived ---
+      const setupAnnouncementListening = () => {
+        this.user.transcription.bridgeResponseCallback = (transcript: string) => {
+          const deferral = classifyBridgeDeferral(transcript);
+          const acceptance = classifyBridgeAcceptance(transcript);
+
+          if (!transcript || deferral) {
+            // User is busy or silent — park without delivering the message
+            this.parkRequest(requestId, message, conversationId, resolve, reject, timeoutMs);
+            session.audio.speak("Ok, say 'I'm ready' when you want to hear it.").catch(() => {});
+          } else if (acceptance) {
+            // User wants to hear it — deliver the full message
+            deliverMessage();
+          } else {
+            // Unrecognized response — treat as acceptance (benefit of the doubt)
+            deliverMessage();
+          }
+        };
         this.user.transcription.activateListening();
       };
 
-      // Try to speak, then set up listening regardless
-      try {
-        const speakResult = session.audio.speak(message);
-        if (speakResult && typeof speakResult.then === "function") {
-          speakResult
-            .then(() => setupListening())
-            .catch((err: unknown) => {
-              console.warn(`📬 [BRIDGE] TTS failed (continuing anyway):`, err);
-              setupListening();
-            });
-        } else {
-          // speak() returned void — proceed immediately
-          setupListening();
-        }
-      } catch (err) {
-        console.warn(`📬 [BRIDGE] TTS threw (continuing anyway):`, err);
-        setupListening();
-      }
+      // Speak the announcement, then listen for accept/defer
+      this.speakSafe(session, "You have a message from Claude Code.", setupAnnouncementListening);
 
-      // Full timeout timer (backstop)
+      // Full timeout timer (backstop — covers both stages)
       this._pendingTimeoutTimer = setTimeout(() => {
         this._pendingTimeoutTimer = null;
         this.handleFullTimeout(requestId, message, conversationId, resolve);
       }, timeoutMs);
     });
+  }
+
+  /**
+   * Speak a message safely — handles void returns, rejections, and throws.
+   * Calls `next` when speech completes (or fails).
+   */
+  private speakSafe(session: NonNullable<User["appSession"]>, text: string, next: () => void): void {
+    try {
+      const result = session.audio.speak(text);
+      if (result && typeof result.then === "function") {
+        result.then(() => next()).catch((err: unknown) => {
+          console.warn(`📬 [BRIDGE] TTS failed (continuing):`, err);
+          next();
+        });
+      } else {
+        next();
+      }
+    } catch (err) {
+      console.warn(`📬 [BRIDGE] TTS threw (continuing):`, err);
+      next();
+    }
   }
 
   /**
@@ -169,6 +201,7 @@ export class BridgeManager {
 
   /**
    * Replay the parked message — called when user says "I'm ready" / "check messages".
+   * Delivers the full message directly (user already opted in by saying "I'm ready").
    */
   async replayParkedMessage(): Promise<void> {
     const parked = this.parkedRequest;
@@ -182,39 +215,35 @@ export class BridgeManager {
     // Display and speak the original message
     session.layouts.showTextWall(parked.message, { durationMs: 10000 });
 
-    try {
-      await session.audio.speak(`Claude asked: ${parked.message}`);
-    } catch {
-      // Continue even if speak fails
-    }
+    this.speakSafe(session, `Claude says: ${parked.message}`, () => {
+      // Set up replay callback
+      this.user.transcription.bridgeResponseCallback = (transcript: string) => {
+        const deferral = classifyBridgeDeferral(transcript);
 
-    // Set up replay callback
-    this.user.transcription.bridgeResponseCallback = (transcript: string) => {
-      const deferral = classifyBridgeDeferral(transcript);
+        if (!transcript || deferral) {
+          // Still not ready — re-park, keep waiting
+          session.audio.speak("Ok, still waiting.").catch(() => {});
+          // parkedRequest stays intact, timeout timer still running
+        } else {
+          // Got the response — resolve original Promise
+          const p = this.parkedRequest!;
+          this.parkedRequest = null;
+          clearTimeout(p.timeoutTimer);
+          if (p.warningTimer) clearTimeout(p.warningTimer);
 
-      if (!transcript || deferral) {
-        // Still not ready — re-park, keep waiting
-        session.audio.speak("Ok, still waiting.").catch(() => {});
-        // parkedRequest stays intact, timeout timer still running
-      } else {
-        // Got the response — resolve original Promise
-        const p = this.parkedRequest!;
-        this.parkedRequest = null;
-        clearTimeout(p.timeoutTimer);
-        if (p.warningTimer) clearTimeout(p.warningTimer);
+          this.logRequest(p.requestId, p.message, transcript, p.conversationId, "responded");
+          p.resolve({
+            status: "responded",
+            requestId: p.requestId,
+            transcript,
+            conversationId: p.conversationId,
+          });
+        }
+      };
 
-        this.logRequest(p.requestId, p.message, transcript, p.conversationId, "responded");
-        p.resolve({
-          status: "responded",
-          requestId: p.requestId,
-          transcript,
-          conversationId: p.conversationId,
-        });
-      }
-    };
-
-    // Activate listening to collect the response
-    this.user.transcription.activateListening();
+      // Activate listening to collect the response
+      this.user.transcription.activateListening();
+    });
   }
 
   /**

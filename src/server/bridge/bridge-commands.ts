@@ -18,6 +18,21 @@ export function classifyBridgeDeferral(query: string): BridgeDeferral | null {
   return null;
 }
 
+// --- Acceptance detection (user wants to hear the message) ---
+
+export type BridgeAcceptance = { type: "accept" };
+
+const BRIDGE_ACCEPTANCE_PATTERN =
+  /^\s*(let'?s?\s+hear\s+it|go\s+ahead|what\s+(is\s+it|did\s+(they|claude|he|she)\s+(say|ask|want|need))|sure|yes|yeah|yep|ok(ay)?|read\s+it|tell\s+me|shoot|let'?s?\s+go|i'?m\s+listening|what'?s?\s+up|bring\s+it|lay\s+it\s+on\s+me|great[,!]?\s+let'?s?\s+hear\s+it)\s*[.!?]*\s*$/i;
+
+export function classifyBridgeAcceptance(query: string): BridgeAcceptance | null {
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+  if (trimmed.split(/\s+/).length > 12) return null; // guard: too long to be acceptance
+  if (BRIDGE_ACCEPTANCE_PATTERN.test(trimmed)) return { type: "accept" };
+  return null;
+}
+
 // --- Bridge command detection (user wants to interact with parked messages) ---
 
 export type BridgeCommand = { type: "check_messages" };
