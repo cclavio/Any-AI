@@ -483,6 +483,15 @@ function createMcpServer(apiKeyHash: string): Server {
 
 export const mcpApp = new Hono();
 
+// Handle OAuth discovery/auth requests — our server uses API key auth, not OAuth.
+// Return proper JSON errors so Claude Code doesn't choke on plain-text 404s.
+mcpApp.get("/.well-known/oauth-authorization-server", (c) => {
+  return c.json({ error: "This MCP server uses API key authentication, not OAuth. The key is in the URL." }, 404);
+});
+mcpApp.all("/oauth/*", (c) => {
+  return c.json({ error: "This MCP server uses API key authentication, not OAuth. The key is in the URL." }, 404);
+});
+
 mcpApp.all("/", async (c) => {
   // Extract API key from Authorization header or query parameter
   let apiKey: string | undefined;
