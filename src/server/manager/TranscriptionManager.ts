@@ -49,6 +49,8 @@ export class TranscriptionManager {
   private isSpeaking: boolean = false;
   private interruptedTTS: boolean = false;
   private failedComprehensionCount: number = 0;
+  private processingStartedAt: number = 0; // timestamp when isProcessing was set true
+  private readonly STUCK_PROCESSING_MS = 30_000; // 30s max before auto-reset
   private activeSpeakerId: string | undefined = undefined;
 
   // Transcript accumulation
@@ -149,9 +151,19 @@ export class TranscriptionManager {
     // Broadcast to SSE clients
     this.broadcast(text, isFinal ?? false);
 
-    // During AI generation (before TTS), ignore entirely
+    // During AI generation (before TTS), ignore entirely — unless stuck
     if (this.isProcessing && !this.isSpeaking) {
-      return;
+      // Stuck-state watchdog: if isProcessing has been true for >30s, force reset
+      if (this.processingStartedAt > 0 && (Date.now() - this.processingStartedAt) > this.STUCK_PROCESSING_MS) {
+        console.error(`🚨 [STUCK-WATCHDOG] isProcessing stuck for ${Math.round((Date.now() - this.processingStartedAt) / 1000)}s — forcing reset to recover`);
+        this.resetState();
+        // Fall through so this transcription event can be processed normally
+      } else {
+        if (isFinal && text.trim().length > 0) {
+          console.log(`🚫 [DROP] Speech dropped (isProcessing=true): "${text.slice(0, 60)}" — busy with AI call (${Math.round((Date.now() - this.processingStartedAt) / 1000)}s)`);
+        }
+        return;
+      }
     }
 
     // During TTS playback, speech = interrupt
@@ -262,7 +274,9 @@ export class TranscriptionManager {
   }
 
   /**
-   * Process the current accumulated query
+   * Process the current accumulated query.
+   * CRITICAL: All paths must reset isProcessing. The try/finally ensures this
+   * even if an unexpected exception occurs — otherwise the system goes deaf.
    */
   private async processCurrentQuery(): Promise<void> {
     if (this.isProcessing) return;
@@ -291,8 +305,10 @@ export class TranscriptionManager {
     }
 
     this.isProcessing = true;
+    this.processingStartedAt = Date.now();
     this.clearTimers();
 
+    try {
     // Bing — acknowledge that speech was received and processing is starting
     this.playBingSound();
 
@@ -391,6 +407,7 @@ export class TranscriptionManager {
     if (this.destroyed) {
       console.log(`🛑 Session destroyed during processing for ${this.user.userId}, aborting`);
       this.playErrorSound();
+      this.resetState();
       return;
     }
 
@@ -471,7 +488,19 @@ export class TranscriptionManager {
       return;
     }
 
+    // Normal path: enter follow-up mode (sets isProcessing = false)
     this.enterFollowUpMode();
+
+    } finally {
+      // Safety net: if we somehow exit without entering follow-up mode or resetting,
+      // guarantee isProcessing is cleared so the system doesn't go deaf.
+      // enterFollowUpMode() and resetState() both set isProcessing = false,
+      // so this is a no-op in the normal path but saves us from stuck states.
+      if (this.isProcessing && !this.isSpeaking) {
+        console.warn(`🚨 [STUCK-GUARD] isProcessing was still true after processCurrentQuery — forcing reset`);
+        this.resetState();
+      }
+    }
   }
 
   /**
@@ -549,6 +578,7 @@ export class TranscriptionManager {
   private resetState(): void {
     this.isListening = false;
     this.isProcessing = false;
+    this.processingStartedAt = 0;
     this.isSpeaking = false;
     this.interruptedTTS = false;
     this.failedComprehensionCount = 0;
@@ -557,6 +587,7 @@ export class TranscriptionManager {
     this.currentTranscript = '';
     this.transcriptionStartTime = 0;
     this.pendingPhoto = null;
+    this.bridgeResponseCallback = null; // prevent stale bridge callbacks from eating queries
     this.clearTimers();
   }
 
