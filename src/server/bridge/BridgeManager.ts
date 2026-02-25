@@ -15,6 +15,7 @@ import { bridgeRequests } from "../db/schema";
 
 const DEFAULT_TIMEOUT_MS = 600_000; // 10 minutes
 const WARNING_BEFORE_TIMEOUT_MS = 60_000; // warn 60s before timeout
+const WARM_CONVERSATION_MS = 30_000; // skip announcement if last response was within 30s
 
 export class BridgeManager {
   /** The currently parked request (in-memory only) */
@@ -25,6 +26,9 @@ export class BridgeManager {
 
   /** Temporary timeout timer ref for the initial phase (before park) */
   private _pendingTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Timestamp of the last successful user response — used to detect warm conversations */
+  private lastResponseTime: number = 0;
 
   constructor(private user: User) {}
 
@@ -59,6 +63,12 @@ export class BridgeManager {
     const conversationId = this.conversationId;
 
     return new Promise<BridgeNotifyResponse>((resolve, reject) => {
+      // Warm conversation: skip announcement if user responded recently
+      const isWarmConversation =
+        this.conversationId === conversationId &&
+        this.lastResponseTime > 0 &&
+        (Date.now() - this.lastResponseTime) < WARM_CONVERSATION_MS;
+
       // --- Stage 2: Deliver the full message and collect the response ---
       const deliverMessage = () => {
         console.log(`📬 [BRIDGE] Delivering message for ${this.user.userId}`);
@@ -78,6 +88,7 @@ export class BridgeManager {
                 clearTimeout(this._pendingTimeoutTimer);
                 this._pendingTimeoutTimer = null;
               }
+              this.lastResponseTime = Date.now();
               this.logRequest(requestId, message, transcript, conversationId, "responded");
               resolve({
                 status: "responded",
@@ -115,8 +126,14 @@ export class BridgeManager {
         this.user.transcription.activateListening();
       };
 
-      // Speak the announcement, then listen for accept/defer
-      this.speakSafe(session, "You have a message from Claude Code.", setupAnnouncementListening);
+      if (isWarmConversation) {
+        // Active back-and-forth — skip announcement, deliver directly
+        console.log(`📬 [BRIDGE] Warm conversation (${Date.now() - this.lastResponseTime}ms since last response) — delivering directly`);
+        deliverMessage();
+      } else {
+        // Cold start — announce first, then deliver on acceptance
+        this.speakSafe(session, "You have a message from Claude Code.", setupAnnouncementListening);
+      }
 
       // Full timeout timer (backstop — covers both stages)
       this._pendingTimeoutTimer = setTimeout(() => {
@@ -231,6 +248,7 @@ export class BridgeManager {
           clearTimeout(p.timeoutTimer);
           if (p.warningTimer) clearTimeout(p.warningTimer);
 
+          this.lastResponseTime = Date.now();
           this.logRequest(p.requestId, p.message, transcript, p.conversationId, "responded");
           p.resolve({
             status: "responded",
@@ -276,6 +294,7 @@ export class BridgeManager {
       }
     }
     this.conversationId = null;
+    this.lastResponseTime = 0;
   }
 
   /**
