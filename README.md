@@ -38,7 +38,7 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Context aware** — Knows your location, date, time, weather, calendar, notifications, and conversation history
 - **Exchange tracking** — Conversation turns are grouped into "exchanges" (wake word to done). Each exchange gets auto-generated topic tags via a lightweight LLM call. The AI's system prompt shows 48 hours of exchange-grouped history with temporal labels ("today morning", "yesterday evening") and tags, so it can distinguish "this morning's conversation about cookies" from "right now"
 - **Conversation persistence** — History hydrated from DB on session start; 48-hour exchange-grouped context window. Each turn records which `user_context` rows were active (`context_ids`) and which exchange it belongs to (`exchange_id`), enabling full traceability of what the AI knew when it responded
-- **Claude Code bridge** — An MCP server connects Claude Code on your laptop to your smart glasses. Claude can ask you questions (spoken aloud through the glasses), wait for your voice response, and park messages if you're busy. Say "I'm ready" when you want to respond. Pairing is a one-time 6-digit code entry in the Settings UI
+- **Claude Code bridge** — Connect Claude Code to your smart glasses. Claude can ask you questions (spoken aloud through the glasses), wait for your voice response, and park messages if you're busy. Say "I'm ready" when you want to respond. Available as a hosted MCP server (no local install — just `claude mcp add`) or a local stdio server. Pairing is a one-time 6-digit code entry in the Settings UI
 - **Session resilience** — Survives network blips and idle socket timeouts with a 5-minute grace period; no "Welcome" replay on reconnect
 - **Timezone detection** — Auto-detects your timezone from GPS when the OS doesn't provide it
 - **Personalization** — Custom assistant name, wake word, and model selection per user
@@ -132,6 +132,7 @@ src/
 │   │   ├── bridge-auth.ts            # API key auth middleware (SHA-256 hash)
 │   │   ├── bridge-commands.ts        # Regex classifiers (deferral + bridge commands)
 │   │   ├── bridge-routes.ts          # Hono routes for /api/bridge/ endpoints
+│   │   ├── mcp-hosted.ts             # Hosted MCP server (Streamable HTTP transport)
 │   │   └── types.ts                  # Bridge request/response types
 │   ├── db/
 │   │   ├── client.ts                 # Drizzle + postgres connection

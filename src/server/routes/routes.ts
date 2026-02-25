@@ -30,6 +30,7 @@ import {
 import { chatStream } from "../api/chat";
 import { killSession } from "../api/debug";
 import { bridgeApi, confirmPairing, getPairingStatus, unpairBridge } from "../bridge/bridge-routes";
+import { mcpApp } from "../bridge/mcp-hosted";
 
 const API_KEY = process.env.MENTRAOS_API_KEY || "";
 const PACKAGE_NAME = process.env.PACKAGE_NAME || "";
@@ -42,6 +43,9 @@ api.get("/health", getHealth);
 
 // Bridge API (uses its own API key auth — must be mounted before SDK auth middleware)
 api.route("/bridge", bridgeApi);
+
+// Hosted MCP server (Streamable HTTP — uses bridge API key auth, no SDK auth)
+api.route("/mcp", mcpApp);
 
 // Apply SDK auth middleware to all other routes
 const authMiddleware = createAuthMiddleware({
