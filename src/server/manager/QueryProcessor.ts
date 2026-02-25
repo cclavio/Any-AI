@@ -175,7 +175,14 @@ export class QueryProcessor {
 
     // Load exchange-grouped history and recent photos for prompt context
     const exchangeGroups = await this.user.chatHistory.getHistoryGroupedByExchange();
-    const recentPhotos = await getRecentPhotosForPrompt(this.user.userId, this.user.aiConfig).catch(() => []);
+    const recentPhotos = await getRecentPhotosForPrompt(
+      this.user.userId,
+      this.user.aiConfig,
+      () => {
+        // Let the user know we're waiting for photo analysis
+        this.user.appSession?.audio.speak("Analyzing your photo, one moment.").catch(() => {});
+      },
+    ).catch(() => []);
 
     const context: GenerateOptions["context"] = {
       hasDisplay,

@@ -179,10 +179,14 @@ const ANALYSIS_WAIT_WINDOW_MS = 60_000; // 60 seconds
  * For very recent photos (< 60s old) missing analysis, blocks and awaits
  * the analysis so the LLM has context when the user asks about it.
  * For older photos, fires ensurePhotoAnalyzed() as fire-and-forget.
+ *
+ * @param onWaitingForAnalysis - Optional callback fired before blocking for analysis,
+ *   so the caller can give the user audio/visual feedback.
  */
 export async function getRecentPhotosForPrompt(
   userId: string,
-  aiConfig?: UserAIConfig
+  aiConfig?: UserAIConfig,
+  onWaitingForAnalysis?: () => void,
 ): Promise<RecentPhoto[]> {
   if (!isDbAvailable()) return [];
 
@@ -235,6 +239,10 @@ export async function getRecentPhotosForPrompt(
       if (photoAgeMs < ANALYSIS_WAIT_WINDOW_MS) {
         // Very recent photo — block and wait for analysis so the LLM has context
         console.log(`📸 [RECENT] Photo ${row.id} is ${Math.round(photoAgeMs / 1000)}s old with no analysis — waiting for it`);
+        if (onWaitingForAnalysis) {
+          onWaitingForAnalysis();
+          onWaitingForAnalysis = undefined; // only fire once
+        }
         try {
           await ensurePhotoAnalyzed(row.id, aiConfig);
 
