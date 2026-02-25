@@ -196,6 +196,8 @@ export class User {
   /** Disconnect glasses but keep user alive (photos, SSE clients stay) */
   clearAppSession(): void {
     this.transcription.destroy();
+    // Resolve any parked bridge requests — the session is gone so they can't function
+    this.bridge.destroy();
     this.appSession = null;
   }
 
