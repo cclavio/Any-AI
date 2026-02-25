@@ -324,18 +324,21 @@ export class QueryProcessor {
     const ttsComplete = this.outputResponse(formattedResponse, context.hasSpeakers, context.hasDisplay);
     lap('OUTPUT-TO-GLASSES-STARTED');
 
-    // Update photo analysis with LLM response, then generate tags (fire-and-forget)
+    // Write photo analysis to DB BEFORE clearing the pipeline — ensures the analysis
+    // is available for the next query's getRecentPhotosForPrompt() call.
+    // Tag generation remains fire-and-forget (non-critical for context).
     if (photoId) {
-      this.updatePhotoAnalysis(photoId, response).then(() => {
+      try {
+        await this.updatePhotoAnalysis(photoId, response);
         const aiConfig = this.user.aiConfig;
         if (aiConfig?.isConfigured) {
           generatePhotoTags(photoId, response, aiConfig).catch((err) => {
             console.warn(`📸 [QP] Tag generation failed for ${photoId}:`, err);
           });
         }
-      }).catch((err) => {
+      } catch (err) {
         console.error(`📸 [QP] Photo analysis update failed for ${this.user.userId}:`, err);
-      });
+      }
     }
 
     // Step 8: Save to chat history (with active context IDs and exchange ID for traceability)

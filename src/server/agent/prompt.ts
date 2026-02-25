@@ -243,9 +243,11 @@ PREVIOUS IMAGES: I may receive previous photos for context. These help me answer
 function buildVisionFailedSection(): string {
   return `## Vision (Camera)
 
-The glasses have a camera, but NO photo was captured for this query (camera error or non-visual query).
-Do NOT reference, describe, or mention any image. Answer using your knowledge, location data, and web search instead.
-If the user asked a visual question ("what is this?", "what am I looking at?"), let them know the camera couldn't capture a photo and ask them to try again.`;
+The glasses have a camera, but NO new photo was captured for this query.
+Do NOT pretend to see the user's current surroundings — no live image is available right now.
+If the user asked about what they're currently looking at ("what is this?", "what am I looking at?"), let them know no photo was captured and ask them to try again.
+
+IMPORTANT: You CAN and SHOULD reference photos listed in the "Recent Photos" section of your context. If the user asks about a photo that was recently taken (e.g., "what did that photo say?", "what was in the last photo?"), use the analysis from the Recent Photos section to answer.`;
 }
 
 /**

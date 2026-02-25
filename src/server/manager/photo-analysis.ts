@@ -142,23 +142,44 @@ export async function ensurePhotoAnalyzed(
 
   let analysis = row.analysis;
 
-  // Step 1: If analysis is missing, try to recover from Storage
+  // Step 1: If analysis is missing, try to recover
   if (!analysis) {
     if (!row.storagePath) {
-      console.warn(`📸 [ENSURE] Photo ${photoId} has no storage path — cannot recover analysis`);
-      return;
-    }
+      // Analysis-only photo (no Storage upload). The analysis is written by
+      // the query pipeline after the LLM responds. If this photo is very recent,
+      // the write may still be in-flight — poll briefly for it to land.
+      console.log(`📸 [ENSURE] Photo ${photoId} has no storage path — polling for in-flight analysis`);
+      const maxRetries = 6;
+      const retryIntervalMs = 500;
+      for (let i = 0; i < maxRetries; i++) {
+        await new Promise(r => setTimeout(r, retryIntervalMs));
+        const [refreshed] = await db
+          .select({ analysis: photos.analysis })
+          .from(photos)
+          .where(eq(photos.id, photoId));
+        if (refreshed?.analysis) {
+          analysis = refreshed.analysis;
+          console.log(`📸 [ENSURE] Analysis arrived for ${photoId} after ${(i + 1) * retryIntervalMs}ms polling`);
+          break;
+        }
+      }
+      if (!analysis) {
+        console.warn(`📸 [ENSURE] Photo ${photoId} has no storage path and analysis didn't arrive — cannot recover`);
+        return;
+      }
+    } else {
+      // Has storage path — download from Storage and run vision analysis
+      try {
+        const { buffer } = await downloadPhoto(row.storagePath);
+        analysis = await analyzePhoto(buffer, aiConfig);
+        if (!analysis) return;
 
-    try {
-      const { buffer } = await downloadPhoto(row.storagePath);
-      analysis = await analyzePhoto(buffer, aiConfig);
-      if (!analysis) return;
-
-      await db.update(photos).set({ analysis }).where(eq(photos.id, photoId));
-      console.log(`📸 [ENSURE] Analysis recovered for ${photoId} (${analysis.length} chars)`);
-    } catch (err) {
-      console.warn(`📸 [ENSURE] Failed to recover analysis for ${photoId}:`, err);
-      return;
+        await db.update(photos).set({ analysis }).where(eq(photos.id, photoId));
+        console.log(`📸 [ENSURE] Analysis recovered for ${photoId} (${analysis.length} chars)`);
+      } catch (err) {
+        console.warn(`📸 [ENSURE] Failed to recover analysis for ${photoId}:`, err);
+        return;
+      }
     }
   }
 
