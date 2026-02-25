@@ -501,8 +501,10 @@ mcpApp.all("/", async (c) => {
     return mcpTransports.get(sessionId)!.handleRequest(c.req.raw);
   }
 
-  // Session ID provided but not found — expired or invalid
-  if (sessionId) {
+  // Session ID provided but not found — expired after deploy.
+  // If API key is present, auto-recover by creating a new session transparently.
+  // If no API key, inform the client to reconnect.
+  if (sessionId && !apiKey) {
     return new Response(
       JSON.stringify({
         jsonrpc: "2.0",
@@ -514,6 +516,9 @@ mcpApp.all("/", async (c) => {
       }),
       { status: 404, headers: { "Content-Type": "application/json" } },
     );
+  }
+  if (sessionId && apiKey) {
+    console.log(`📬 [MCP] Stale session ${sessionId} — auto-recovering with API key`);
   }
 
   // New session — API key required
