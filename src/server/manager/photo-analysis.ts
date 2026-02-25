@@ -169,10 +169,16 @@ export async function ensurePhotoAnalyzed(
   }
 }
 
+/** How recently a photo must have been captured to warrant blocking for analysis */
+const ANALYSIS_WAIT_WINDOW_MS = 60_000; // 60 seconds
+
 /**
  * Query recent photos for system prompt injection.
  * Returns photos with analysis from the last 24 hours.
- * Fires ensurePhotoAnalyzed() as fire-and-forget for photos missing data.
+ *
+ * For very recent photos (< 60s old) missing analysis, blocks and awaits
+ * the analysis so the LLM has context when the user asks about it.
+ * For older photos, fires ensurePhotoAnalyzed() as fire-and-forget.
  */
 export async function getRecentPhotosForPrompt(
   userId: string,
@@ -224,10 +230,43 @@ export async function getRecentPhotosForPrompt(
         });
       }
     } else if (aiConfig?.isConfigured) {
-      // Missing analysis — fire-and-forget recovery (available next query)
-      ensurePhotoAnalyzed(row.id, aiConfig).catch((err) => {
-        console.warn(`📸 [RECENT] Analysis backfill failed for ${row.id}:`, err);
-      });
+      const photoAgeMs = Date.now() - row.capturedAt.getTime();
+
+      if (photoAgeMs < ANALYSIS_WAIT_WINDOW_MS) {
+        // Very recent photo — block and wait for analysis so the LLM has context
+        console.log(`📸 [RECENT] Photo ${row.id} is ${Math.round(photoAgeMs / 1000)}s old with no analysis — waiting for it`);
+        try {
+          await ensurePhotoAnalyzed(row.id, aiConfig);
+
+          // Re-fetch the row to get the analysis
+          const [updated] = await db
+            .select({ analysis: photos.analysis, tags: photos.tags })
+            .from(photos)
+            .where(eq(photos.id, row.id));
+
+          if (updated?.analysis) {
+            const truncated =
+              updated.analysis.length > PHOTO_ANALYSIS_SETTINGS.analysisTruncateChars
+                ? updated.analysis.slice(0, PHOTO_ANALYSIS_SETTINGS.analysisTruncateChars - 3) + "..."
+                : updated.analysis;
+
+            result.push({
+              capturedAt: row.capturedAt,
+              tags: updated.tags ?? [],
+              analysis: truncated,
+              saved: row.saved,
+            });
+            console.log(`📸 [RECENT] Analysis recovered for recent photo ${row.id}`);
+          }
+        } catch (err) {
+          console.warn(`📸 [RECENT] Blocking analysis failed for ${row.id}:`, err);
+        }
+      } else {
+        // Older photo — fire-and-forget recovery (available next query)
+        ensurePhotoAnalyzed(row.id, aiConfig).catch((err) => {
+          console.warn(`📸 [RECENT] Analysis backfill failed for ${row.id}:`, err);
+        });
+      }
     }
   }
 
