@@ -238,9 +238,6 @@ export class TranscriptionManager {
     this.currentTranscript = '';
     this.transcriptionStartTime = Date.now();
 
-    // Play "start listening" audio cue
-    this.playStartSound();
-
     // Start a new exchange if one isn't already active (follow-ups reuse the same exchange)
     if (!this.user.exchange.isActive()) {
       this.user.exchange.startExchange().catch(console.error);
