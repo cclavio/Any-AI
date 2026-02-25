@@ -293,6 +293,9 @@ export class TranscriptionManager {
     this.isProcessing = true;
     this.clearTimers();
 
+    // Bing — acknowledge that speech was received and processing is starting
+    this.playBingSound();
+
     // Store first few words for duplicate detection (lowercase, stripped of punctuation)
     this.lastProcessedWords = this.extractWords(query);
     this.lastProcessedTime = Date.now();
@@ -379,6 +382,7 @@ export class TranscriptionManager {
     // Bail if session destroyed during classification/photo
     if (this.destroyed) {
       console.log(`🛑 Session destroyed during processing for ${this.user.userId}, aborting`);
+      this.playErrorSound();
       return;
     }
 
@@ -390,6 +394,7 @@ export class TranscriptionManager {
       }
     } catch (error) {
       console.error('Error processing query:', error);
+      this.playErrorSound();
       this.failedComprehensionCount++;
     }
 
@@ -415,6 +420,7 @@ export class TranscriptionManager {
 
     // Bail if session destroyed during AI processing
     if (this.destroyed) {
+      this.playErrorSound();
       this.resetState();
       return;
     }
@@ -611,6 +617,30 @@ export class TranscriptionManager {
     if (soundUrl && this.user.appSession) {
       this.user.appSession.audio.playAudio({ audioUrl: soundUrl }).catch((err) => {
         console.debug('Start listening sound failed:', err);
+      });
+    }
+  }
+
+  /**
+   * Play a short bing to acknowledge speech was received (silence timeout fired)
+   */
+  private playBingSound(): void {
+    const soundUrl = getDefaultSoundUrl('bing.mp3');
+    if (soundUrl && this.user.appSession) {
+      this.user.appSession.audio.playAudio({ audioUrl: soundUrl }).catch((err) => {
+        console.debug('Bing sound failed:', err);
+      });
+    }
+  }
+
+  /**
+   * Play an error tone when the pipeline fails unexpectedly
+   */
+  private playErrorSound(): void {
+    const soundUrl = getDefaultSoundUrl('error.mp3');
+    if (soundUrl && this.user.appSession) {
+      this.user.appSession.audio.playAudio({ audioUrl: soundUrl }).catch((err) => {
+        console.debug('Error sound failed:', err);
       });
     }
   }

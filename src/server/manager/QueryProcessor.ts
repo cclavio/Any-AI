@@ -16,6 +16,7 @@ import { eq } from "drizzle-orm";
 import { generatePhotoTags, getRecentPhotosForPrompt } from "./photo-analysis";
 
 const PROCESSING_SOUND_URL = process.env.PROCESSING_SOUND_URL || getDefaultSoundUrl('processing.mp3');
+const ERROR_SOUND_URL = getDefaultSoundUrl('error.mp3');
 
 /**
  * Result from processing a query — includes the text response and
@@ -431,6 +432,10 @@ export class QueryProcessor {
         await session.audio.speak(response);
       } catch (error) {
         console.debug("Speech output failed:", error);
+        // Play error tone so user knows something went wrong
+        if (ERROR_SOUND_URL) {
+          session.audio.playAudio({ audioUrl: ERROR_SOUND_URL }).catch(() => {});
+        }
       }
     }
   }
