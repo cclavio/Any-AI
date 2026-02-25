@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Loader2, Copy, Check, ChevronDown, ChevronUp, Trash2, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Loader2, Copy, Check, Trash2, Plus } from 'lucide-react';
 import {
   generateBridgeApiKey,
-  confirmBridgePairing,
   getBridgePairingStatus,
   unpairBridge,
   type BridgeKeyInfo,
@@ -20,13 +19,7 @@ export default function BridgePairing() {
   const [keyCopied, setKeyCopied] = useState(false);
   const [cmdCopied, setCmdCopied] = useState(false);
 
-  // 6-digit code entry (secondary option)
-  const [showCodeEntry, setShowCodeEntry] = useState(false);
-  const [digits, setDigits] = useState(['', '', '', '', '', '']);
-  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const loadStatus = () => {
     getBridgePairingStatus()
@@ -69,61 +62,6 @@ export default function BridgePairing() {
       }
     } catch {
       // Clipboard API might not be available
-    }
-  };
-
-  // ─── 6-Digit Code Entry ───
-
-  const handleDigitChange = (index: number, value: string) => {
-    const digit = value.replace(/\D/g, '').slice(-1);
-    const newDigits = [...digits];
-    newDigits[index] = digit;
-    setDigits(newDigits);
-    setError(null);
-
-    if (digit && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === 'Backspace' && !digits[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-    if (!pasted) return;
-    const newDigits = [...digits];
-    for (let i = 0; i < 6; i++) {
-      newDigits[i] = pasted[i] || '';
-    }
-    setDigits(newDigits);
-    const nextEmpty = newDigits.findIndex((d) => !d);
-    inputRefs.current[nextEmpty >= 0 ? nextEmpty : 5]?.focus();
-  };
-
-  const handleCodeSubmit = async () => {
-    const code = digits.join('');
-    if (code.length !== 6) {
-      setError('Enter all 6 digits');
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-
-    const result = await confirmBridgePairing(code);
-    setSubmitting(false);
-
-    if (result.success) {
-      setSuccess(true);
-      setDigits(['', '', '', '', '', '']);
-      loadStatus();
-    } else {
-      setError(result.error || 'Pairing failed');
     }
   };
 
@@ -328,6 +266,7 @@ export default function BridgePairing() {
         className="rounded-[16px] overflow-hidden"
         style={{ backgroundColor: 'var(--primary-foreground)' }}
       >
+        {/* Description (shown when no keys yet) */}
         {keys.length === 0 && (
           <>
             <div className="px-[5px] py-[12px]">
@@ -335,7 +274,7 @@ export default function BridgePairing() {
                 className="text-[14px] leading-[22px]"
                 style={{ color: 'var(--muted-foreground)' }}
               >
-                Generate an API key to connect Claude Code to your glasses. You can create multiple keys for different machines.
+                Lets Claude Code on your computer send you notifications and questions through your glasses. You respond by voice, and your answer goes back to Claude. Generate an API key and run the setup command in your terminal.
               </p>
             </div>
             <div className="mx-[5px]" style={{ borderBottom: '1px solid var(--border)' }} />
@@ -377,84 +316,12 @@ export default function BridgePairing() {
             )}
           </button>
         </div>
-
-        <div className="mx-[5px]" style={{ borderBottom: '1px solid var(--border)' }} />
-
-        {/* Secondary: 6-digit code entry */}
-        <button
-          onClick={() => setShowCodeEntry(!showCodeEntry)}
-          className="w-full flex items-center justify-between px-[5px] h-[44px]"
-          type="button"
-        >
-          <span
-            className="text-[14px]"
-            style={{ color: 'var(--muted-foreground)' }}
-          >
-            Already have a pairing code?
-          </span>
-          {showCodeEntry ? (
-            <ChevronUp size={16} style={{ color: 'var(--muted-foreground)' }} />
-          ) : (
-            <ChevronDown size={16} style={{ color: 'var(--muted-foreground)' }} />
-          )}
-        </button>
-
-        {showCodeEntry && (
-          <>
-            <div className="mx-[5px]" style={{ borderBottom: '1px solid var(--border)' }} />
-            <div className="flex items-center justify-center gap-2 px-[5px] py-[16px]">
-              {digits.map((digit, i) => (
-                <input
-                  key={i}
-                  ref={(el) => { inputRefs.current[i] = el; }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleDigitChange(i, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(i, e)}
-                  onPaste={i === 0 ? handlePaste : undefined}
-                  className="w-[40px] h-[48px] text-center text-[20px] font-semibold rounded-[8px] border outline-none transition-colors"
-                  style={{
-                    backgroundColor: 'var(--background)',
-                    borderColor: digit ? 'var(--secondary-foreground)' : 'var(--border)',
-                    color: 'var(--secondary-foreground)',
-                  }}
-                />
-              ))}
-            </div>
-
-            <div className="px-[5px] pb-[12px]">
-              <button
-                onClick={handleCodeSubmit}
-                disabled={submitting || digits.some((d) => !d)}
-                className="w-full h-[40px] rounded-[12px] text-[15px] font-semibold transition-all disabled:opacity-40"
-                style={{
-                  backgroundColor: 'var(--secondary-foreground)',
-                  color: 'var(--primary-foreground)',
-                }}
-                type="button"
-              >
-                {submitting ? (
-                  <Loader2 size={16} className="animate-spin mx-auto" />
-                ) : (
-                  'Pair'
-                )}
-              </button>
-            </div>
-          </>
-        )}
       </div>
 
-      {/* Error / success messages */}
+      {/* Error message */}
       {error && (
         <p className="text-center text-[14px] text-red-500 px-[5px]">
           {error}
-        </p>
-      )}
-      {success && (
-        <p className="text-center text-[14px] text-green-500 px-[5px]">
-          Paired successfully!
         </p>
       )}
     </div>

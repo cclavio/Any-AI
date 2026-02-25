@@ -1,7 +1,6 @@
 import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import ProviderSetup from '../components/ProviderSetup';
-import BridgePairing from '../components/BridgePairing';
 
 interface SettingsProps {
   isDarkMode: boolean;
@@ -81,18 +80,7 @@ function Settings({
           </p>
         </div>
 
-        {/* Claude Bridge */}
-        <div className="space-y-1">
-          <h3
-            className="text-[14px] font-semibold uppercase tracking-wide px-[4px] mb-[6px]"
-            style={{ color: 'var(--muted-foreground)' }}
-          >
-            Claude Bridge
-          </h3>
-          <BridgePairing />
-        </div>
-
-        {/* AI Provider Setup */}
+        {/* AI Provider Setup + Claude Bridge */}
         <ProviderSetup />
 
         {/* Version Info */}

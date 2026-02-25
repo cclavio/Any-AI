@@ -228,25 +228,6 @@ export const generateBridgeApiKey = async (label?: string): Promise<{
   return data;
 };
 
-/**
- * Confirm a bridge pairing code (entered in the glasses app webview)
- */
-export const confirmBridgePairing = async (
-  code: string
-): Promise<{ success: boolean; error?: string }> => {
-  const response = await fetch(`${getApiUrl()}/api/pair/confirm`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ code }),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    return { success: false, error: data.error || "Failed to confirm pairing" };
-  }
-  return data;
-};
-
 export interface BridgeKeyInfo {
   id: string;
   label: string;
