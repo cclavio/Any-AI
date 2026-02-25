@@ -38,11 +38,11 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Context aware** — Knows your location, date, time, weather, calendar, notifications, and conversation history
 - **Exchange tracking** — Conversation turns are grouped into "exchanges" (wake word to done). Each exchange gets auto-generated topic tags via a lightweight LLM call. The AI's system prompt shows 48 hours of exchange-grouped history with temporal labels ("today morning", "yesterday evening") and tags, so it can distinguish "this morning's conversation about cookies" from "right now"
 - **Conversation persistence** — History hydrated from DB on session start; 48-hour exchange-grouped context window. Each turn records which `user_context` rows were active (`context_ids`) and which exchange it belongs to (`exchange_id`), enabling full traceability of what the AI knew when it responded
-- **Claude Code bridge** — Connect Claude Code to your smart glasses. Claude can ask you questions (spoken aloud through the glasses), wait for your voice response, and park messages if you're busy. Say "I'm ready" when you want to respond. Available as a hosted MCP server (no local install — just `claude mcp add`) or a local stdio server. Pairing is a one-time 6-digit code entry in the Settings UI
+- **Claude Code bridge** — Connect Claude Code to your smart glasses. Claude can send you notifications and questions (spoken aloud), wait for your voice response, and park messages if you're busy. Say "I'm ready" when you want to respond. Available as a hosted MCP server — generate an API key in Settings, run the `claude mcp add` command, and you're connected. Supports multiple API keys per user (one per machine)
 - **Session resilience** — Survives network blips and idle socket timeouts with a 5-minute grace period; no "Welcome" replay on reconnect
 - **Timezone detection** — Auto-detects your timezone from GPS when the OS doesn't provide it
 - **Personalization** — Custom assistant name, wake word, and model selection per user
-- **Audio & visual feedback** — Green LED on wake word, shutter sound on photo capture, audio cues for listening/processing states, personalized TTS welcome message
+- **Audio & visual feedback** — Green LED on wake word, start sound on listening, bing tone on speech received, processing loop during AI generation, error tone on pipeline failures, shutter sound on photo capture, personalized TTS welcome message
 - **Hardware button** — Single press the action button to activate the listener (no wake word needed)
 
 ## What Changed from Mentra AI 2
@@ -97,7 +97,7 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **Notification intelligence** — `NotificationManager` rewritten from `unknown`-typed stub to fully typed `PhoneNotification` handler with in-memory Map + `user_context` DB persistence (4-hour TTL). `onPhoneNotificationDismissed` wired to auto-remove stale entries. AI prompt shows notifications grouped by app with priority indicators. "Check my notifications" voice command gives instant spoken readout. Hydrates from DB on restart.
 - **Native web search** — Provider-native web search tools replace the Jina HTTP tool for all supported models. `resolveSearchTools()` checks `ModelInfo.supportsWebSearch` in the catalog and creates Anthropic `webSearch_20250305`, OpenAI `webSearch`, or Google `googleSearch` tools with user location forwarding. Models without native support fall back to Jina. `JINA_API_KEY` is no longer required when using native search.
 - **Photo intelligence** — `photo-analysis.ts` module provides `analyzePhoto()` (vision model analysis), `generatePhotoTags()` (LLM tag extraction from analysis text), `ensurePhotoAnalyzed()` (lazy backfill for photos missing analysis/tags), and `getRecentPhotosForPrompt()` (24h photo context for system prompt). Voice command photos now get automatic vision analysis + tagging via fire-and-forget chain in `DeviceCommandHandler`. Visual query photos get tags extracted from the LLM response. System prompt includes a "Recent Photos" section with relative timestamps, tags, and truncated analysis.
-- **Claude Code bridge** — `BridgeManager` implements a park-and-wait model: Claude Code sends a message via HTTP long-poll, the glasses speak it aloud, and `TranscriptionManager.bridgeResponseCallback` intercepts the user's voice response before normal processing. If the user says "I'm busy", the request is parked in memory; "I'm ready" replays it. Auth uses SHA-256 hashed API keys with one-time 6-digit pairing codes. Three new tables (`claude_mentra_pairs`, `pairing_codes`, `bridge_requests`) store pairings and audit logs. A standalone MCP server (`mcp-server/`) provides 6 tools for Claude Code integration via stdio transport.
+- **Claude Code bridge** — `BridgeManager` implements a park-and-wait model: Claude Code sends a message via HTTP long-poll, the glasses speak it aloud, and `TranscriptionManager.bridgeResponseCallback` intercepts the user's voice response before normal processing. If the user says "I'm busy", the request is parked in memory; "I'm ready" replays it. Auth uses SHA-256 hashed API keys with in-app key generation (multiple keys per user). Hosted MCP server (`mcp-hosted.ts`) uses Streamable HTTP transport — no local install needed, just `claude mcp add`. Three new tables (`claude_mentra_pairs`, `pairing_codes`, `bridge_requests`) store pairings and audit logs.
 
 ### Supported Models
 
@@ -112,7 +112,7 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 ```
 src/
 ├── index.ts                          # Bun.serve + Hono entry point
-├── public/assets/audio/              # Audio cues (start, processing, welcome, shutter)
+├── public/assets/audio/              # Audio cues (start, bing, processing, error, welcome, shutter)
 ├── server/
 │   ├── MentraAI.ts                   # AppServer lifecycle (onSession/onStop) with soft disconnect
 │   ├── agent/
@@ -156,7 +156,7 @@ src/
     ├── pages/Settings.tsx            # Settings page
     ├── components/
     │   ├── ProviderSetup.tsx         # Provider config UI
-    │   └── BridgePairing.tsx         # Claude Bridge pairing UI (6-digit code entry)
+    │   └── BridgePairing.tsx         # Claude Bridge pairing UI (API key generation, multi-key)
     └── api/settings.api.ts           # Frontend API client
 mcp-server/                           # Standalone MCP server for Claude Code (stdio transport)
 ```
@@ -165,7 +165,7 @@ mcp-server/                           # Standalone MCP server for Claude Code (s
 
 ```
 Wake word OR single-press action button → Green LED flash → Start listening sound → Exchange starts
-  → User speaks query → Silence detected
+  → User speaks query → Silence detected → Bing tone (speech acknowledged)
     → Conversational closer? (e.g. "thanks", "I'm good", "bye")
       → Gratitude: Speaks "You're welcome!" → Exchange ends → Idle
       → Dismissal: Silent → Exchange ends → Idle
