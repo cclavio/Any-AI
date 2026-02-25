@@ -284,17 +284,24 @@ export class BridgeManager {
 
   /**
    * End the bridge conversation — optional farewell message.
+   * Returns true if farewell was delivered, false if it failed.
    */
-  async handleEnd(farewell?: string): Promise<void> {
+  async handleEnd(farewell?: string): Promise<boolean> {
+    // Clear any active bridge listening state to avoid interference with farewell TTS
+    this.user.transcription.bridgeResponseCallback = null;
+
+    let delivered = false;
     if (farewell) {
       try {
         await this.handleSpeak(farewell);
-      } catch {
-        // Ignore speak errors on end
+        delivered = true;
+      } catch (err) {
+        console.warn(`📬 [BRIDGE] Farewell delivery failed:`, err);
       }
     }
     this.conversationId = null;
     this.lastResponseTime = 0;
+    return delivered;
   }
 
   /**

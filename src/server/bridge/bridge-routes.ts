@@ -207,11 +207,12 @@ bridgeApi.post("/end", requirePaired, async (c) => {
   const farewell = typeof body.message === "string" ? body.message : undefined;
 
   const user = sessions.get(mentraUserId);
+  let delivered = false;
   if (user) {
-    await user.bridge.handleEnd(farewell).catch(() => {});
+    delivered = await user.bridge.handleEnd(farewell).catch(() => false);
   }
 
-  return c.json({ ended: true });
+  return c.json({ ended: true, farewellDelivered: farewell ? delivered : undefined });
 });
 
 /**

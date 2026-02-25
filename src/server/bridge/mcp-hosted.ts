@@ -365,20 +365,23 @@ function createMcpServer(apiKeyHash: string): Server {
             .where(eq(claudeMentraPairs.apiKeyHash, apiKeyHash))
             .limit(1);
 
+          let delivered = false;
           if (pair) {
             const user = sessions.get(pair.mentraUserId);
             if (user) {
-              await user.bridge.handleEnd(farewell).catch(() => {});
+              delivered = await user.bridge.handleEnd(farewell).catch(() => false);
             }
           }
+
+          const status = farewell
+            ? (delivered ? `Farewell delivered: "${farewell}"` : `Farewell failed to deliver (glasses may be busy).`)
+            : "";
 
           return {
             content: [
               {
                 type: "text" as const,
-                text:
-                  "Conversation ended." +
-                  (farewell ? ` Farewell message delivered: "${farewell}"` : ""),
+                text: "Conversation ended." + (status ? ` ${status}` : ""),
               },
             ],
           };

@@ -337,15 +337,23 @@ export class TranscriptionManager {
 
     // Check for bridge commands ("I'm ready", "check messages")
     const bridgeCmd = classifyBridgeCommand(query);
-    if (bridgeCmd && this.user.bridge.hasParkedRequest()) {
-      console.log(`📬 Bridge command detected: ${bridgeCmd.type} for "${query}"`);
-      try {
-        await this.user.bridge.replayParkedMessage();
-      } catch (error) {
-        console.error("Error replaying parked message:", error);
+    if (bridgeCmd) {
+      if (this.user.bridge.hasParkedRequest()) {
+        console.log(`📬 Bridge command detected: ${bridgeCmd.type} for "${query}"`);
+        try {
+          await this.user.bridge.replayParkedMessage();
+        } catch (error) {
+          console.error("Error replaying parked message:", error);
+        }
+        this.resetState();
+        return;
+      } else {
+        // No parked message — give clear feedback instead of falling through to AI
+        console.log(`📬 Bridge command detected but no parked message: "${query}"`);
+        this.user.appSession?.audio.speak("No messages from Claude Code right now.").catch(() => {});
+        this.enterFollowUpMode();
+        return;
       }
-      this.resetState();
-      return;
     }
 
     // Classify query: does it need a photo?
