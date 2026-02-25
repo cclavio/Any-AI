@@ -433,7 +433,7 @@ export default function ProviderSetup() {
   const llmProviderIds = allProviderIds.filter((id) => id !== 'none');
   // Vision providers: exclude "custom" (local vision isn't viable), include "none" for opt-out
   const visionProviderIds = [
-    ...allProviderIds.filter((id) => id !== 'custom'),
+    ...allProviderIds.filter((id) => id !== 'custom' && id !== 'none'),
     'none',
   ];
 
