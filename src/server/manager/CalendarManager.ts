@@ -68,6 +68,7 @@ export class CalendarManager {
           ),
         );
 
+      const seenKeys = new Set<string>();
       for (const row of rows) {
         const data = row.data as Record<string, unknown>;
         const event: StoredCalendarEvent = {
@@ -79,6 +80,14 @@ export class CalendarManager {
           receivedAt: data.receivedAt as number,
           contextId: row.id,
         };
+
+        // Dedup on hydration too — same title+time from different calendar accounts
+        const key = this.dedupKey(event.title, event.dtStart, event.dtEnd);
+        if (seenKeys.has(key)) {
+          console.log(`📅 [DEDUP] Skipping duplicate from DB: "${event.title}" (eventId=${event.eventId})`);
+          continue;
+        }
+        seenKeys.add(key);
         this.events.set(event.eventId, event);
       }
 
@@ -91,16 +100,39 @@ export class CalendarManager {
   }
 
   /**
+   * Build a dedup key from title + start time + end time.
+   * Events with the same content from different calendar accounts
+   * (different eventIds) will map to the same dedup key.
+   */
+  private dedupKey(title: string, dtStart: number, dtEnd: number): string {
+    return `${title.toLowerCase().trim()}|${dtStart}|${dtEnd}`;
+  }
+
+  /**
    * Add or update a calendar event (from SDK push).
+   * Deduplicates by title+time (same event from multiple calendar accounts).
    * Writes to in-memory Map + DB upsert.
    */
   async addEvent(event: CalendarEvent): Promise<void> {
+    // Log raw SDK event for debugging calendar source issues
+    console.log(`📅 [SDK-RAW] Calendar event received: eventId=${event.eventId} title="${event.title}" dtStart=${event.dtStart} dtEnd=${event.dtEnd} tz=${event.timezone} ts=${event.timeStamp}`);
+
     const dtStart = this.parseEpoch(event.dtStart);
     const dtEnd = this.parseEpoch(event.dtEnd);
 
     if (!dtStart || !dtEnd) {
       console.warn(`📅 Invalid calendar event dates for "${event.title}" — skipping`);
       return;
+    }
+
+    // Dedup: if an event with the same title+start+end already exists
+    // under a different eventId, skip it (same event from another calendar account)
+    const key = this.dedupKey(event.title, dtStart, dtEnd);
+    for (const existing of this.events.values()) {
+      if (existing.eventId !== event.eventId && this.dedupKey(existing.title, existing.dtStart, existing.dtEnd) === key) {
+        console.log(`📅 [DEDUP] Skipping duplicate: "${event.title}" (eventId=${event.eventId}) — already have eventId=${existing.eventId}`);
+        return;
+      }
     }
 
     const stored: StoredCalendarEvent = {
