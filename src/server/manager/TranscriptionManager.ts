@@ -207,7 +207,6 @@ export class TranscriptionManager {
 
       // Wake word detected! Start listening
       console.log(`⏱️ [WAKE] Wake word detected: "${text}" (isFinal=${isFinal ?? false})`);
-      this.flashWakeLed();
       this.startListening(speakerId);
     }
 
@@ -237,6 +236,7 @@ export class TranscriptionManager {
     this.activeSpeakerId = speakerId;
     this.currentTranscript = '';
     this.transcriptionStartTime = Date.now();
+    this.setListeningLed(true);
 
     // Start a new exchange if one isn't already active (follow-ups reuse the same exchange)
     if (!this.user.exchange.isActive()) {
@@ -303,6 +303,7 @@ export class TranscriptionManager {
 
     this.isProcessing = true;
     this.processingStartedAt = Date.now();
+    this.setListeningLed(false); // Not listening during AI processing
     this.clearTimers();
 
     try {
@@ -452,9 +453,7 @@ export class TranscriptionManager {
     this.isListening = true;
     this.interruptedTTS = false;
     this.currentTranscript = '';
-
-    // Green LED
-    this.user.appSession?.led.solid("green", 2000).catch(() => {});
+    this.setListeningLed(true); // Listening again (can interrupt TTS)
 
     // Wait for TTS to complete (or be interrupted)
     if (queryResult?.ttsComplete) {
@@ -585,6 +584,7 @@ export class TranscriptionManager {
     this.transcriptionStartTime = 0;
     this.pendingPhoto = null;
     this.bridgeResponseCallback = null; // prevent stale bridge callbacks from eating queries
+    this.setListeningLed(false); // No longer listening
     this.clearTimers();
   }
 
@@ -652,13 +652,17 @@ export class TranscriptionManager {
   }
 
   /**
-   * Flash the green LED briefly to acknowledge wake word detection
+   * Set the green LED to reflect listening state.
+   * Green ON = glasses are listening for speech. OFF = not listening.
    */
-  private flashWakeLed(): void {
-    if (this.user.appSession) {
-      this.user.appSession.led.solid("green", 500).catch((err) => {
-        console.debug('Wake LED flash failed:', err);
-      });
+  private setListeningLed(on: boolean): void {
+    if (!this.user.appSession) return;
+    if (on) {
+      // Long duration — will be explicitly turned off when listening stops
+      this.user.appSession.led.solid("green", 30000).catch(() => {});
+    } else {
+      // 1ms duration effectively turns it off immediately
+      this.user.appSession.led.solid("green", 1).catch(() => {});
     }
   }
 
@@ -708,7 +712,6 @@ export class TranscriptionManager {
     if (this.isListening || this.isProcessing) return;
 
     console.log(`🎤 [MANUAL] Listening activated for ${this.user.userId}`);
-    this.flashWakeLed();
     this.startListening();
   }
 
