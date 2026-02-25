@@ -210,14 +210,16 @@ export const validateGoogleCloudKey = async (
 /**
  * Generate a bridge API key and create the pairing immediately
  */
-export const generateBridgeApiKey = async (): Promise<{
+export const generateBridgeApiKey = async (label?: string): Promise<{
   apiKey?: string;
   mcpCommand?: string;
   error?: string;
 }> => {
   const response = await fetch(`${getApiUrl()}/api/pair/generate-key`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     credentials: "include",
+    body: JSON.stringify({ label }),
   });
   const data = await response.json();
   if (!response.ok) {
@@ -245,11 +247,19 @@ export const confirmBridgePairing = async (
   return data;
 };
 
+export interface BridgeKeyInfo {
+  id: string;
+  label: string;
+  createdAt: string;
+  lastSeenAt: string;
+}
+
 /**
- * Get bridge pairing status for the current user
+ * Get bridge pairing status for the current user (supports multiple keys)
  */
 export const getBridgePairingStatus = async (): Promise<{
   paired: boolean;
+  keys: BridgeKeyInfo[];
   displayName?: string;
 }> => {
   const response = await fetch(`${getApiUrl()}/api/pair/status`, {
@@ -260,12 +270,14 @@ export const getBridgePairingStatus = async (): Promise<{
 };
 
 /**
- * Unpair the Claude Code bridge
+ * Revoke a specific bridge key or all keys
  */
-export const unpairBridge = async (): Promise<{ success: boolean }> => {
+export const unpairBridge = async (keyId?: string): Promise<{ success: boolean }> => {
   const response = await fetch(`${getApiUrl()}/api/pair/unpair`, {
     method: "POST",
+    headers: { "Content-Type": "application/json" },
     credentials: "include",
+    body: JSON.stringify(keyId ? { keyId } : {}),
   });
   if (!response.ok) throw new Error("Failed to unpair");
   return response.json();

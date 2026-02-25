@@ -319,23 +319,15 @@ export async function confirmPairing(c: any) {
  * Generate a bridge API key — called from Settings webview.
  * Creates the pairing immediately (user is already authenticated via SDK).
  * Returns the raw key once — it's never stored, only the hash.
+ * Supports multiple keys per user (one per machine/session).
  */
 export async function generateBridgeApiKey(c: any) {
   const userId = c.get("authUserId") as string;
-
-  // Check if already paired
-  const [existing] = await db
-    .select()
-    .from(claudeMentraPairs)
-    .where(eq(claudeMentraPairs.mentraUserId, userId))
-    .limit(1);
-
-  if (existing) {
-    return c.json(
-      { error: "Already paired. Unpair first to generate a new key." },
-      400,
-    );
-  }
+  const body = await c.req.json().catch(() => ({} as Record<string, unknown>));
+  const label =
+    typeof body.label === "string" && body.label.trim()
+      ? body.label.trim()
+      : `Key ${Date.now().toString(36).slice(-4)}`;
 
   // Generate key: anyai_bridge_ + 32 hex chars
   const randomBytes = new Uint8Array(16);
@@ -350,7 +342,7 @@ export async function generateBridgeApiKey(c: any) {
   await db.insert(claudeMentraPairs).values({
     apiKeyHash,
     mentraUserId: userId,
-    displayName: `User ${userId.slice(0, 8)}`,
+    displayName: label,
   });
 
   const baseUrl = process.env.PUBLIC_URL || "https://your-app.railway.app";
@@ -363,31 +355,59 @@ export async function generateBridgeApiKey(c: any) {
 
 /**
  * Get pairing status for the current webview user.
+ * Returns all keys (multiple keys per user supported).
  */
 export async function getPairingStatus(c: any) {
   const userId = c.get("authUserId") as string;
 
-  const [pair] = await db
-    .select()
+  const pairs = await db
+    .select({
+      id: claudeMentraPairs.id,
+      displayName: claudeMentraPairs.displayName,
+      createdAt: claudeMentraPairs.createdAt,
+      lastSeenAt: claudeMentraPairs.lastSeenAt,
+    })
     .from(claudeMentraPairs)
-    .where(eq(claudeMentraPairs.mentraUserId, userId))
-    .limit(1);
+    .where(eq(claudeMentraPairs.mentraUserId, userId));
 
   return c.json({
-    paired: !!pair,
-    displayName: pair?.displayName ?? undefined,
+    paired: pairs.length > 0,
+    keys: pairs.map((p) => ({
+      id: p.id,
+      label: p.displayName ?? "Unnamed",
+      createdAt: p.createdAt.toISOString(),
+      lastSeenAt: p.lastSeenAt.toISOString(),
+    })),
+    // Backwards compat
+    displayName: pairs[0]?.displayName ?? undefined,
   });
 }
 
 /**
- * Unpair — remove the Claude Code pairing for the current user.
+ * Revoke a specific key or all keys for the current user.
+ * Pass { keyId: "uuid" } to revoke one, or no body to revoke all.
  */
 export async function unpairBridge(c: any) {
   const userId = c.get("authUserId") as string;
+  const body = await c.req.json().catch(() => ({} as Record<string, unknown>));
+  const keyId = typeof body.keyId === "string" ? body.keyId : undefined;
 
-  await db
-    .delete(claudeMentraPairs)
-    .where(eq(claudeMentraPairs.mentraUserId, userId));
+  if (keyId) {
+    // Revoke a specific key
+    await db
+      .delete(claudeMentraPairs)
+      .where(
+        and(
+          eq(claudeMentraPairs.id, keyId),
+          eq(claudeMentraPairs.mentraUserId, userId),
+        ),
+      );
+  } else {
+    // Revoke all keys
+    await db
+      .delete(claudeMentraPairs)
+      .where(eq(claudeMentraPairs.mentraUserId, userId));
+  }
 
   return c.json({ success: true });
 }

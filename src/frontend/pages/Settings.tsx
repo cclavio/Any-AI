@@ -81,9 +81,6 @@ function Settings({
           </p>
         </div>
 
-        {/* AI Provider Setup */}
-        <ProviderSetup />
-
         {/* Claude Bridge */}
         <div className="space-y-1">
           <h3
@@ -94,6 +91,9 @@ function Settings({
           </h3>
           <BridgePairing />
         </div>
+
+        {/* AI Provider Setup */}
+        <ProviderSetup />
 
         {/* Version Info */}
         <div className="pt-8 text-center">
