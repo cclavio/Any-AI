@@ -29,7 +29,7 @@ import {
 } from "../api/settings";
 import { chatStream } from "../api/chat";
 import { killSession } from "../api/debug";
-import { bridgeApi, confirmPairing, getPairingStatus, unpairBridge } from "../bridge/bridge-routes";
+import { bridgeApi, confirmPairing, generateBridgeApiKey, getPairingStatus, unpairBridge } from "../bridge/bridge-routes";
 import { mcpApp } from "../bridge/mcp-hosted";
 
 const API_KEY = process.env.MENTRAOS_API_KEY || "";
@@ -87,6 +87,7 @@ api.post("/settings/google-cloud/validate", validateGoogleCloudKeyEndpoint);
 api.get("/providers/catalog", getProviderCatalog);
 
 // Claude Bridge pairing (webview — behind SDK auth)
+api.post("/pair/generate-key", generateBridgeApiKey);
 api.post("/pair/confirm", confirmPairing);
 api.get("/pair/status", getPairingStatus);
 api.post("/pair/unpair", unpairBridge);

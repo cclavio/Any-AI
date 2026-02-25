@@ -208,6 +208,25 @@ export const validateGoogleCloudKey = async (
 // ─── Claude Bridge Pairing ───
 
 /**
+ * Generate a bridge API key and create the pairing immediately
+ */
+export const generateBridgeApiKey = async (): Promise<{
+  apiKey?: string;
+  mcpCommand?: string;
+  error?: string;
+}> => {
+  const response = await fetch(`${getApiUrl()}/api/pair/generate-key`, {
+    method: "POST",
+    credentials: "include",
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    return { error: data.error || "Failed to generate API key" };
+  }
+  return data;
+};
+
+/**
  * Confirm a bridge pairing code (entered in the glasses app webview)
  */
 export const confirmBridgePairing = async (

@@ -316,6 +316,52 @@ export async function confirmPairing(c: any) {
 }
 
 /**
+ * Generate a bridge API key — called from Settings webview.
+ * Creates the pairing immediately (user is already authenticated via SDK).
+ * Returns the raw key once — it's never stored, only the hash.
+ */
+export async function generateBridgeApiKey(c: any) {
+  const userId = c.get("authUserId") as string;
+
+  // Check if already paired
+  const [existing] = await db
+    .select()
+    .from(claudeMentraPairs)
+    .where(eq(claudeMentraPairs.mentraUserId, userId))
+    .limit(1);
+
+  if (existing) {
+    return c.json(
+      { error: "Already paired. Unpair first to generate a new key." },
+      400,
+    );
+  }
+
+  // Generate key: anyai_bridge_ + 32 hex chars
+  const randomBytes = new Uint8Array(16);
+  crypto.getRandomValues(randomBytes);
+  const hex = Array.from(randomBytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  const apiKey = `anyai_bridge_${hex}`;
+
+  // Hash and store
+  const apiKeyHash = hashApiKey(apiKey);
+  await db.insert(claudeMentraPairs).values({
+    apiKeyHash,
+    mentraUserId: userId,
+    displayName: `User ${userId.slice(0, 8)}`,
+  });
+
+  const baseUrl = process.env.PUBLIC_URL || "https://your-app.railway.app";
+
+  return c.json({
+    apiKey,
+    mcpCommand: `claude mcp add --transport http mentra-bridge -- ${baseUrl}/api/mcp?key=${apiKey}`,
+  });
+}
+
+/**
  * Get pairing status for the current webview user.
  */
 export async function getPairingStatus(c: any) {
