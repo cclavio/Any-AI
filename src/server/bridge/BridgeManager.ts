@@ -57,8 +57,8 @@ export class BridgeManager {
       // Display on HUD
       session.layouts.showTextWall(message, { durationMs: 10000 });
 
-      // Speak through glasses
-      session.audio.speak(message).then(() => {
+      // Speak through glasses (non-fatal — still set up listening even if TTS fails)
+      const setupListening = () => {
         // Set up first-attempt callback — intercepted by TranscriptionManager
         this.user.transcription.bridgeResponseCallback = (transcript: string) => {
           const deferral = classifyBridgeDeferral(transcript);
@@ -86,13 +86,26 @@ export class BridgeManager {
 
         // Activate listening to collect the response
         this.user.transcription.activateListening();
-      }).catch((err) => {
-        if (this._pendingTimeoutTimer) {
-          clearTimeout(this._pendingTimeoutTimer);
-          this._pendingTimeoutTimer = null;
+      };
+
+      // Try to speak, then set up listening regardless
+      try {
+        const speakResult = session.audio.speak(message);
+        if (speakResult && typeof speakResult.then === "function") {
+          speakResult
+            .then(() => setupListening())
+            .catch((err: unknown) => {
+              console.warn(`📬 [BRIDGE] TTS failed (continuing anyway):`, err);
+              setupListening();
+            });
+        } else {
+          // speak() returned void — proceed immediately
+          setupListening();
         }
-        reject(new Error(`Failed to speak: ${err.message}`));
-      });
+      } catch (err) {
+        console.warn(`📬 [BRIDGE] TTS threw (continuing anyway):`, err);
+        setupListening();
+      }
 
       // Full timeout timer (backstop)
       this._pendingTimeoutTimer = setTimeout(() => {
@@ -212,7 +225,14 @@ export class BridgeManager {
     if (!session) throw new Error("Glasses offline");
 
     session.layouts.showTextWall(message, { durationMs: 10000 });
-    await session.audio.speak(message);
+    try {
+      const speakResult = session.audio.speak(message);
+      if (speakResult && typeof speakResult.then === "function") {
+        await speakResult;
+      }
+    } catch (err) {
+      console.warn(`📬 [BRIDGE] TTS failed in handleSpeak:`, err);
+    }
   }
 
   /**

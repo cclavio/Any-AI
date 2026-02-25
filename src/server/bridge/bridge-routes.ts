@@ -349,7 +349,7 @@ export async function generateBridgeApiKey(c: any) {
 
   return c.json({
     apiKey,
-    mcpCommand: `claude mcp add --transport http mentra-bridge -- ${baseUrl}/api/mcp?key=${apiKey}`,
+    mcpCommand: `claude mcp add --scope user --transport http mentra-bridge "${baseUrl}/api/mcp?key=${apiKey}"`,
   });
 }
 
