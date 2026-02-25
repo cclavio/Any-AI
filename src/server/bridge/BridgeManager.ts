@@ -81,7 +81,7 @@ export class BridgeManager {
             if (!transcript || deferral) {
               // User deferred after hearing the message — park
               this.parkRequest(requestId, message, conversationId, resolve, reject, timeoutMs);
-              session.audio.speak("Ok, say 'I'm ready' when you want to respond.").catch(() => {});
+              session.audio.speak("Ok, just ask about Claude's message when you're ready to respond.").catch(() => {});
             } else {
               // Got the actual response — resolve
               if (this._pendingTimeoutTimer) {
@@ -114,7 +114,7 @@ export class BridgeManager {
           if (!transcript || deferral) {
             // User is busy or silent — park without delivering the message
             this.parkRequest(requestId, message, conversationId, resolve, reject, timeoutMs);
-            session.audio.speak("Ok, say 'I'm ready' when you want to hear it.").catch(() => {});
+            session.audio.speak("Ok, just ask about Claude's message when you're ready.").catch(() => {});
           } else if (acceptance) {
             // User wants to hear it — deliver the full message
             deliverMessage();
@@ -192,7 +192,7 @@ export class BridgeManager {
       warningTimer = setTimeout(() => {
         const session = this.user.appSession;
         if (session && this.parkedRequest) {
-          session.audio.speak("Claude's message expires in one minute. Say 'I'm ready' to respond now.").catch(() => {});
+          session.audio.speak("Claude's message expires in one minute. Ask about it if you'd like to respond.").catch(() => {});
           session.layouts.showTextWall("Claude's message expires soon", { durationMs: 5000 });
         }
       }, timeoutMs - WARNING_BEFORE_TIMEOUT_MS);
