@@ -31,7 +31,7 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Vision** — Answers questions about what you're seeing (smart photo capture with shutter sound feedback). Vision can be independently configured or disabled entirely — visual queries get a spoken "image analysis isn't available" message when vision is off
 - **Photo intelligence** — All photos are automatically analyzed by the vision model and tagged. Voice command photos ("take a photo") are uploaded to Supabase Storage and get vision analysis + auto-generated tags. Visual query photos store the LLM response as analysis. The last 24 hours of photos (with tags and summaries) are injected into the AI's context, so you can ask "what was in that photo?" without retaking it. Photos missing analysis are backfilled lazily on the next query.
 - **Web search** — Provider-native web search (Anthropic, OpenAI, Google) with automatic fallback to Jina for models without native search support
-- **Location services** — Nearby places, directions, weather, air quality, and pollen data (optional Google Cloud API key)
+- **Location services** — Nearby places, directions, weather, air quality, and pollen data (optional Google Cloud API key). API errors (quota exceeded, billing disabled, invalid key) produce specific spoken feedback instead of generic failures
 - **Battery check** — Ask "what's my battery?" for instant glasses battery level and charging status
 - **Calendar aware** — Receives calendar events from your phone; ask "what's my schedule?" for an instant readout, or ask the AI questions like "when is my next meeting?"
 - **Notification intelligence** — Phone notifications are received via SDK, persisted to Postgres with typed fields (app, title, content, priority), and injected into the AI's context grouped by app. Say "check my notifications" for an instant spoken readout, or ask the AI "do I have any messages from John?" for contextual answers. Notifications survive server restarts via DB hydration and are auto-removed when dismissed on the phone.
@@ -85,7 +85,7 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **Dynamic identity** — System prompt reflects user's chosen assistant name, model, and provider
 - **Auth hardening** — All `/api/*` routes require verified `aos_session` cookie; no endpoint reads userId from query params
 - **Row Level Security** — RLS enabled on all Supabase tables for defense-in-depth
-- **Per-user Google Cloud key** — Location services (geocoding, weather, air quality, pollen, places, directions, timezone) use a per-user API key stored in Vault, with graceful fallbacks when unconfigured
+- **Per-user Google Cloud key** — Location services (geocoding, weather, air quality, pollen, places, directions, timezone) use a per-user API key stored in Vault, with graceful fallbacks when unconfigured. Google Cloud API errors are classified by type (`google-cloud-errors.ts`) and surfaced as specific spoken messages (e.g., "Your Google Cloud Weather API has reached its usage limit") instead of silent failures or vague LLM responses
 - **Session resilience** — `onStop()` uses soft disconnect with a 5-minute grace period instead of destroying user state immediately; glasses reconnects are seamless with no welcome replay
 - **Conversation hydration** — `ChatHistoryManager.initialize()` loads today's turns from DB on session start so prior context survives server restarts
 - **Vision error handling** — Failed photo captures return a clear user-facing error instead of sending a photoless query to the LLM
@@ -96,8 +96,9 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **Smart silence** — Silence timeout increased to 3 seconds so users aren't cut off mid-thought when pausing
 - **Comprehension auto-close** — Regex-based `isComprehensionFailure()` classifier detects "I didn't catch that" LLM responses. Two consecutive failures (empty transcript or agent repeat) trigger a friendly auto-close message and end the exchange with `comprehension_failure` end reason
 - **Notification intelligence** — `NotificationManager` rewritten from `unknown`-typed stub to fully typed `PhoneNotification` handler with in-memory Map + `user_context` DB persistence (4-hour TTL). `onPhoneNotificationDismissed` wired to auto-remove stale entries. AI prompt shows notifications grouped by app with priority indicators. "Check my notifications" voice command gives instant spoken readout. Hydrates from DB on restart.
-- **Native web search** — Provider-native web search tools replace the Jina HTTP tool for all supported models. `resolveSearchTools()` checks `ModelInfo.supportsWebSearch` in the catalog and creates Anthropic `webSearch_20250305`, OpenAI `webSearch`, or Google `googleSearch` tools with user location forwarding. Models without native support fall back to Jina. `JINA_API_KEY` is no longer required when using native search.
+- **Native web search** — Provider-native web search tools replace the Jina HTTP tool for all supported models. `resolveSearchTools()` checks `ModelInfo.supportsWebSearch` in the catalog and creates Anthropic `webSearch_20250305`, OpenAI `webSearch`, or Google `googleSearch` tools with user location forwarding (country names auto-converted to ISO 3166-1 alpha-2 codes). Models without native support fall back to Jina. `JINA_API_KEY` is no longer required when using native search.
 - **Photo intelligence** — `photo-analysis.ts` module provides `analyzePhoto()` (vision model analysis), `generatePhotoTags()` (LLM tag extraction from analysis text), `ensurePhotoAnalyzed()` (lazy backfill for photos missing analysis/tags), and `getRecentPhotosForPrompt()` (24h photo context for system prompt). Voice command photos now get automatic vision analysis + tagging via fire-and-forget chain in `DeviceCommandHandler`. Visual query photos get tags extracted from the LLM response. System prompt includes a "Recent Photos" section with relative timestamps, tags, and truncated analysis.
+- **Settings UI polish** — Reusable settings primitives (`settings-ui.tsx`: SettingSection, SettingRow, SettingDivider, SettingDescription) replace repeated inline markup. Inputs and dropdowns have visible backgrounds, focus rings, and chevron indicators. Inline `style={{}}` color declarations replaced with Tailwind CSS 4 utility classes mapped via `@theme inline`
 - **Claude Code bridge** — `BridgeManager` implements a park-and-wait model: Claude Code sends a message via HTTP long-poll, the glasses announce it ("You have a message from Claude Code"), wait for acceptance, then deliver and collect the user's voice response. Warm conversations (<30s gap) skip the announcement. If the user defers, the request is parked in memory with a 10-minute timeout and 60-second warning. Natural retrieval commands ("does Claude have a message?", "what did Claude want?", "I'm ready") trigger replay. Auth uses SHA-256 hashed API keys with in-app key generation (multiple keys per user). Hosted MCP server (`mcp-hosted.ts`) uses Streamable HTTP transport with auto-session-recovery on deploy — no local install needed, just `claude mcp add`. Three new tables (`claude_mentra_pairs`, `pairing_codes`, `bridge_requests`) store pairings and audit logs.
 
 ### Supported Models
@@ -120,7 +121,7 @@ src/
 │   ├── agent/
 │   │   ├── MentraAgent.ts            # AI SDK generateText() wrapper
 │   │   ├── comprehension-failure.ts  # Regex classifier (comprehension failure)
-│   │   ├── visual-classifier.ts     # LLM-based visual query classifier
+│   │   ├── visual-classifier.ts      # LLM-based visual query classifier
 │   │   ├── conversational-closers.ts # Regex-based closer classifier (gratitude, dismissal)
 │   │   ├── device-commands.ts        # Regex-based device command classifier (photo, battery, schedule, notifications)
 │   │   ├── prompt.ts                 # Dynamic system prompt builder (exchange-grouped history)
@@ -128,7 +129,13 @@ src/
 │   │   │   ├── types.ts              # UserAIConfig, MODEL_CATALOG, Provider
 │   │   │   ├── registry.ts           # ProviderRegistry (resolve config → model)
 │   │   │   └── vision.ts             # Multi-provider vision API
-│   │   └── tools/                    # AI SDK tool definitions (search, calculator, thinking, places, directions)
+│   │   └── tools/
+│   │       ├── search.tool.ts        # Jina web search tool (fallback)
+│   │       ├── native-search.ts      # Provider-native web search resolution (Anthropic, OpenAI, Google)
+│   │       ├── calculator.tool.ts    # Calculator tool
+│   │       ├── thinking.tool.ts      # Extended thinking tool
+│   │       ├── places.tool.ts        # Google Places nearby search tool
+│   │       └── directions.tool.ts    # Google Routes directions tool
 │   ├── bridge/
 │   │   ├── BridgeManager.ts          # Per-user bridge state: park-and-wait, replay, timeout
 │   │   ├── bridge-auth.ts            # API key auth middleware (SHA-256 hash)
@@ -139,28 +146,40 @@ src/
 │   ├── db/
 │   │   ├── client.ts                 # Drizzle + postgres connection
 │   │   ├── schema.ts                 # All table definitions (9 tables)
-│   │   ├── storage.ts               # Supabase Storage helpers (upload/download/delete photos)
-│   │   └── vault.ts                  # Supabase Vault helpers (store/retrieve/delete)
+│   │   ├── storage.ts                # Supabase Storage helpers (upload/download/delete photos)
+│   │   ├── vault.ts                  # Supabase Vault helpers (store/retrieve/delete)
+│   │   └── drizzle/                  # SQL migration files (0000–0010)
 │   ├── manager/
+│   │   ├── AudioManager.ts           # Audio cue playback (processing loop, error tone)
 │   │   ├── CalendarManager.ts        # Calendar events from phone (in-memory + DB persistence)
 │   │   ├── ChatHistoryManager.ts     # Drizzle-based conversation persistence + exchange-grouped queries
 │   │   ├── DeviceCommandHandler.ts   # Hardware command executor (photo, battery, schedule, notifications)
-│   │   ├── ExchangeManager.ts       # Exchange lifecycle (start/end) + async tag generation
-│   │   ├── LocationManager.ts        # GPS, geocoding, weather, air quality, pollen, timezone
+│   │   ├── ExchangeManager.ts        # Exchange lifecycle (start/end) + async tag generation
+│   │   ├── LocationManager.ts        # GPS, geocoding, weather, air quality, pollen, timezone + error tracking
+│   │   ├── NotificationManager.ts    # Phone notification persistence, dismissal tracking, prompt injection
+│   │   ├── PhotoManager.ts           # Photo metadata management (capture, storage refs)
 │   │   ├── QueryProcessor.ts         # Query pipeline (transcription → agent → TTS)
 │   │   ├── TranscriptionManager.ts   # Wake word, closers, device commands, follow-up mode, exchange hooks
 │   │   └── photo-analysis.ts         # Photo analysis (vision), tag generation (LLM), backfill, prompt context
+│   ├── utils/
+│   │   ├── google-cloud-errors.ts    # Google Cloud API error classification (quota, billing, permission)
+│   │   ├── tts-formatter.ts          # TTS unit abbreviation expansion
+│   │   ├── location-keywords.ts      # Location/weather/air quality/pollen query detection
+│   │   └── wake-word.ts              # Wake word utilities
+│   ├── constants/config.ts           # ResponseMode, word limits, exchange settings, comprehension settings
 │   ├── routes/routes.ts              # Hono routes + SDK auth middleware
 │   ├── api/settings.ts               # Settings + provider config handlers
 │   └── session/User.ts               # Per-user state + aiConfig from DB/Vault
 └── frontend/
-    ├── App.tsx                       # React app with routing
-    ├── pages/Settings.tsx            # Settings page
+    ├── App.tsx                        # React app with routing
+    ├── pages/Settings.tsx             # Settings page
     ├── components/
-    │   ├── ProviderSetup.tsx         # Provider config UI
-    │   └── BridgePairing.tsx         # Claude Bridge pairing UI (API key generation, multi-key)
-    └── api/settings.api.ts           # Frontend API client
-mcp-server/                           # Standalone MCP server for Claude Code (stdio transport)
+    │   ├── ProviderSetup.tsx          # Provider config UI (LLM, Vision, Google Cloud, custom/local)
+    │   ├── BridgePairing.tsx          # Claude Bridge pairing UI (API key generation, multi-key)
+    │   └── settings-ui.tsx            # Reusable settings primitives (Section, Row, Divider, Description)
+    ├── styles/theme.css               # Tailwind CSS 4 theme (CSS vars → utility class mapping)
+    └── api/settings.api.ts            # Frontend API client
+mcp-server/                            # Standalone MCP server for Claude Code (stdio transport)
 ```
 
 ## Interaction Flow
