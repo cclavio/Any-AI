@@ -294,7 +294,7 @@ export class QueryProcessor {
       response = result.response;
     } catch (error) {
       console.error(`Agent error for ${this.user.userId}:`, error);
-      response = "I'm sorry, I had trouble processing that. Please try again.";
+      response = "Sorry, something went wrong on my end. You can ask me something else.";
     }
     lap('AI-GENERATE-RESPONSE');
 

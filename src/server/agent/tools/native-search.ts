@@ -26,6 +26,47 @@ interface NativeSearchOptions {
 }
 
 /**
+ * Common country name → ISO 3166-1 alpha-2 code mapping.
+ * Anthropic's web search requires a 2-letter country code.
+ */
+const COUNTRY_TO_ISO: Record<string, string> = {
+  "united states": "US", "united states of america": "US", "usa": "US",
+  "canada": "CA", "united kingdom": "GB", "great britain": "GB",
+  "australia": "AU", "germany": "DE", "france": "FR", "japan": "JP",
+  "china": "CN", "india": "IN", "brazil": "BR", "mexico": "MX",
+  "spain": "ES", "italy": "IT", "netherlands": "NL", "sweden": "SE",
+  "norway": "NO", "denmark": "DK", "finland": "FI", "switzerland": "CH",
+  "austria": "AT", "belgium": "BE", "ireland": "IE", "portugal": "PT",
+  "new zealand": "NZ", "south korea": "KR", "singapore": "SG",
+  "israel": "IL", "south africa": "ZA", "argentina": "AR", "chile": "CL",
+  "colombia": "CO", "peru": "PE", "poland": "PL", "czech republic": "CZ",
+  "czechia": "CZ", "romania": "RO", "hungary": "HU", "greece": "GR",
+  "turkey": "TR", "thailand": "TH", "vietnam": "VN", "indonesia": "ID",
+  "malaysia": "MY", "philippines": "PH", "egypt": "EG", "nigeria": "NG",
+  "kenya": "KE", "ukraine": "UA", "russia": "RU", "pakistan": "PK",
+  "bangladesh": "BD", "taiwan": "TW", "hong kong": "HK", "iceland": "IS",
+  "luxembourg": "LU", "croatia": "HR", "serbia": "RS", "bulgaria": "BG",
+  "slovakia": "SK", "slovenia": "SI", "estonia": "EE", "latvia": "LV",
+  "lithuania": "LT", "cyprus": "CY", "malta": "MT", "costa rica": "CR",
+  "panama": "PA", "puerto rico": "PR", "jamaica": "JM",
+  "dominican republic": "DO", "uruguay": "UY", "ecuador": "EC",
+  "bolivia": "BO", "paraguay": "PY", "venezuela": "VE", "cuba": "CU",
+  "morocco": "MA", "tunisia": "TN", "ghana": "GH", "ethiopia": "ET",
+  "tanzania": "TZ", "uganda": "UG", "mozambique": "MZ",
+  "saudi arabia": "SA", "united arab emirates": "AE", "qatar": "QA",
+  "kuwait": "KW", "bahrain": "BH", "oman": "OM", "jordan": "JO",
+  "lebanon": "LB", "iraq": "IQ", "iran": "IR",
+  "nepal": "NP", "sri lanka": "LK", "cambodia": "KH", "myanmar": "MM",
+};
+
+/** Convert a country name to a 2-letter ISO code, or return as-is if already short. */
+function toCountryCode(country: string | undefined): string | undefined {
+  if (!country) return undefined;
+  if (country.length <= 2) return country.toUpperCase();
+  return COUNTRY_TO_ISO[country.toLowerCase()] ?? undefined;
+}
+
+/**
  * Resolve the search tool(s) for a given provider and model.
  *
  * Returns a tools-object spread containing either the provider-native
@@ -42,8 +83,10 @@ export function resolveSearchTools(options: NativeSearchOptions): Record<string,
   }
 
   // Build userLocation if we have geocoded data
+  // Country must be a 2-letter ISO code (Anthropic web search requires this)
+  const countryCode = toCountryCode(location?.country);
   const userLocation = location?.city
-    ? { type: "approximate" as const, city: location.city, region: location.region, country: location.country }
+    ? { type: "approximate" as const, city: location.city, region: location.region, ...(countryCode ? { country: countryCode } : {}) }
     : undefined;
 
   try {
