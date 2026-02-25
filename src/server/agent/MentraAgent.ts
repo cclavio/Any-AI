@@ -212,6 +212,45 @@ export async function generateResponse(options: GenerateOptions): Promise<Genera
 
   } catch (error) {
     console.error("❌ Agent generation error:", error);
+
+    // Detect Google Cloud / provider quota/billing errors and give actionable feedback
+    // instead of the generic "I had trouble processing that" message
+    const errMsg = error instanceof Error ? error.message : String(error);
+    const errLower = errMsg.toLowerCase();
+    if (
+      errLower.includes("resource_exhausted") ||
+      errLower.includes("quota") ||
+      errLower.includes("rate limit") ||
+      errLower.includes("429")
+    ) {
+      const provider = config.llmProvider === "google" ? "Google Gemini" : config.llmProvider;
+      return {
+        response: `Your ${provider} API has reached its usage limit. Please check your billing or quota settings, or try switching to a different provider in Settings.`,
+        toolCalls: toolCallCount,
+      };
+    }
+    if (
+      errLower.includes("billing") ||
+      errLower.includes("payment")
+    ) {
+      const provider = config.llmProvider === "google" ? "Google Gemini" : config.llmProvider;
+      return {
+        response: `Your ${provider} API requires billing to be enabled. Please check your account billing settings.`,
+        toolCalls: toolCallCount,
+      };
+    }
+    if (
+      errLower.includes("api_key_invalid") ||
+      errLower.includes("api key not valid") ||
+      errLower.includes("invalid api key") ||
+      errLower.includes("incorrect api key")
+    ) {
+      return {
+        response: "Your AI provider API key appears to be invalid. Please check your API key in Settings.",
+        toolCalls: toolCallCount,
+      };
+    }
+
     throw error;
   }
 }

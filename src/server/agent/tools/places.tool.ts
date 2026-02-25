@@ -61,6 +61,16 @@ export function createPlacesTool(lat: number, lng: number, apiKey: string) {
         if (!response.ok) {
           const errText = await response.text();
           console.error(`❌ Places API error: ${response.status} — ${errText}`);
+          const lower = errText.toLowerCase();
+          if (response.status === 429 || lower.includes("quota") || lower.includes("resource_exhausted") || lower.includes("rate limit")) {
+            return { results: "The Google Places API has reached its usage limit. Please check your Google Cloud billing or quota settings." };
+          }
+          if (lower.includes("billing")) {
+            return { results: "The Google Places API requires billing to be enabled in your Google Cloud Console." };
+          }
+          if (response.status === 403) {
+            return { results: "The Google Places API isn't enabled for your API key. Please enable it in Google Cloud Console." };
+          }
           return { results: "Places search failed. Try asking me to search the web instead." };
         }
 

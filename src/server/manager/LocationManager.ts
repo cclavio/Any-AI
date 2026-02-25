@@ -12,6 +12,7 @@ import { Client } from "@googlemaps/google-maps-services-js";
 import type { User } from "../session/User";
 import { isLocationQuery, isWeatherQuery, isAirQualityQuery, isPollenQuery, isTimeQuery } from "../utils/location-keywords";
 import { LOCATION_CACHE_SETTINGS } from "../constants/config";
+import { classifyGoogleCloudError, classifyThrownGoogleError, type GoogleCloudError } from "../utils/google-cloud-errors";
 
 // Google Maps client
 const mapsClient = new Client({});
@@ -95,8 +96,21 @@ export class LocationManager {
   private lastGeocodedLat: number | null = null;
   private lastGeocodedLng: number | null = null;
 
+  // Last Google Cloud API error (cleared on next successful call)
+  private _lastApiError: GoogleCloudError | null = null;
+
   constructor(private user: User) {
     console.log(`📍 LocationManager init for ${user.userId}`);
+  }
+
+  /** Get the last Google Cloud API error (if any). Cleared on successful calls. */
+  get lastApiError(): GoogleCloudError | null {
+    return this._lastApiError;
+  }
+
+  /** Clear the last API error (call after reporting to user). */
+  clearApiError(): void {
+    this._lastApiError = null;
   }
 
   /** Per-user Google Cloud API key (loaded from Vault via aiConfig) */
@@ -314,7 +328,21 @@ export class LocationManager {
       });
 
       if (response.data.status !== 'OK' || !response.data.results?.length) {
-        console.warn(`⚠️ Geocoding failed: ${response.data.status}`);
+        const status = response.data.status;
+        if (status === 'REQUEST_DENIED' || status === 'OVER_QUERY_LIMIT') {
+          this._lastApiError = {
+            kind: status === 'OVER_QUERY_LIMIT' ? 'quota_exceeded' : 'permission_denied',
+            api: 'Geocoding',
+            status: 0,
+            message: `Geocoding status: ${status}`,
+            userMessage: status === 'OVER_QUERY_LIMIT'
+              ? 'Your Google Cloud Geocoding API has reached its usage limit. You may need to check your Google Cloud billing or quota settings.'
+              : 'The Google Cloud Geocoding API access was denied. Please check your API key permissions.',
+          };
+          console.warn(`⚠️ Geocoding failed: ${status} — ${this._lastApiError.kind}`);
+        } else {
+          console.warn(`⚠️ Geocoding failed: ${status}`);
+        }
         this.initializeContextWithDefaults(lat, lng);
         return;
       }
@@ -371,11 +399,13 @@ export class LocationManager {
 
       this.lastGeocodedLat = lat;
       this.lastGeocodedLng = lng;
+      this._lastApiError = null; // Clear on success
 
       console.log(`✅ Geocoding complete: ${city}, ${state}`);
 
     } catch (error) {
-      console.error('❌ Geocoding error:', error);
+      this._lastApiError = classifyThrownGoogleError(error, "Geocoding");
+      console.error('❌ Geocoding error:', this._lastApiError.message);
       this.initializeContextWithDefaults(lat, lng);
     }
   }
@@ -397,7 +427,8 @@ export class LocationManager {
       });
 
       if (!response.ok) {
-        console.warn(`⚠️ Weather API error: ${response.status}`);
+        this._lastApiError = await classifyGoogleCloudError(response, "Weather");
+        console.warn(`⚠️ Weather API error: ${response.status} — ${this._lastApiError.kind}: ${this._lastApiError.message}`);
         return;
       }
 
@@ -418,11 +449,13 @@ export class LocationManager {
         wind: windSpeed && windDir ? `${windSpeed} mph ${windDir}` : undefined,
       };
       this.cachedContext.weatherFetchedAt = Date.now();
+      this._lastApiError = null; // Clear on success
 
       console.log(`✅ Weather: ${tempFahrenheit}°F, ${condition}`);
 
     } catch (error) {
-      console.error('❌ Weather error:', error);
+      this._lastApiError = classifyThrownGoogleError(error, "Weather");
+      console.error('❌ Weather error:', this._lastApiError.message);
     }
   }
 
@@ -447,7 +480,8 @@ export class LocationManager {
       );
 
       if (!response.ok) {
-        console.warn(`⚠️ Air Quality API error: ${response.status}`);
+        this._lastApiError = await classifyGoogleCloudError(response, "Air Quality");
+        console.warn(`⚠️ Air Quality API error: ${response.status} — ${this._lastApiError.kind}: ${this._lastApiError.message}`);
         return;
       }
 
@@ -461,10 +495,12 @@ export class LocationManager {
           dominantPollutant: index.dominantPollutant || "unknown",
         };
         this.cachedContext.airQualityFetchedAt = Date.now();
+        this._lastApiError = null;
         console.log(`✅ Air Quality: AQI ${index.aqi} — ${index.category}`);
       }
     } catch (error) {
-      console.error("❌ Air Quality error:", error);
+      this._lastApiError = classifyThrownGoogleError(error, "Air Quality");
+      console.error("❌ Air Quality error:", this._lastApiError.message);
     }
   }
 
@@ -481,7 +517,8 @@ export class LocationManager {
       const response = await fetch(url);
 
       if (!response.ok) {
-        console.warn(`⚠️ Pollen API error: ${response.status}`);
+        this._lastApiError = await classifyGoogleCloudError(response, "Pollen");
+        console.warn(`⚠️ Pollen API error: ${response.status} — ${this._lastApiError.kind}: ${this._lastApiError.message}`);
         return;
       }
 
@@ -501,6 +538,7 @@ export class LocationManager {
           weed: getType("WEED"),
         };
         this.cachedContext.pollenFetchedAt = Date.now();
+        this._lastApiError = null;
 
         const levels = [
           this.cachedContext.pollen.grass ? `Grass: ${this.cachedContext.pollen.grass.level}` : null,
@@ -510,7 +548,8 @@ export class LocationManager {
         console.log(`✅ Pollen: ${levels}`);
       }
     } catch (error) {
-      console.error("❌ Pollen error:", error);
+      this._lastApiError = classifyThrownGoogleError(error, "Pollen");
+      console.error("❌ Pollen error:", this._lastApiError.message);
     }
   }
 
@@ -591,6 +630,7 @@ export class LocationManager {
     this.currentLng = null;
     this.lastGeocodedLat = null;
     this.lastGeocodedLng = null;
+    this._lastApiError = null;
     console.log(`🗑️ LocationManager cleaned up for ${this.user.userId}`);
   }
 }

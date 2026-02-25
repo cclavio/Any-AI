@@ -193,6 +193,53 @@ export class QueryProcessor {
         console.warn(`Failed to get location for ${this.user.userId}:`, error);
       }
       lap('LOCATION-FETCH');
+
+      // Check if a Google Cloud API failed during location fetch — give the user
+      // a specific spoken message instead of letting the LLM hallucinate a vague answer
+      const apiError = this.user.location.lastApiError;
+      if (apiError) {
+        console.warn(`🚨 Google Cloud API error detected (${apiError.api}): ${apiError.kind} — ${apiError.message}`);
+        this.user.location.clearApiError();
+
+        // Only short-circuit for queries that specifically need the data that failed
+        // (e.g., weather query when Weather API failed)
+        const isWeatherQuery = this.user.location.queryNeedsWeather(query);
+        const isAirQuery = this.user.location.queryNeedsAirQuality(query);
+        const isPollenQuery = this.user.location.queryNeedsPollen(query);
+        const failedApi = apiError.api.toLowerCase();
+        const shouldShortCircuit =
+          (failedApi === "weather" && isWeatherQuery) ||
+          (failedApi === "air quality" && isAirQuery) ||
+          (failedApi === "pollen" && isPollenQuery) ||
+          failedApi === "geocoding"; // Geocoding failure affects all location queries
+
+        if (shouldShortCircuit) {
+          this.stopProcessingSound();
+          const errorMsg = apiError.userMessage;
+          console.warn(`🚨 Short-circuiting query — Google Cloud ${apiError.api} API failed for ${this.user.userId}`);
+
+          broadcastChatEvent(this.user.userId, {
+            type: "message",
+            id: `user-${Date.now()}`,
+            senderId: this.user.userId,
+            recipientId: "mentra-ai",
+            content: query,
+            timestamp: new Date().toISOString(),
+          });
+          broadcastChatEvent(this.user.userId, {
+            type: "message",
+            id: `ai-${Date.now()}`,
+            senderId: "mentra-ai",
+            recipientId: this.user.userId,
+            content: errorMsg,
+            timestamp: new Date().toISOString(),
+          });
+          broadcastChatEvent(this.user.userId, { type: "idle" });
+
+          const ttsComplete = this.outputResponse(errorMsg, hasSpeakers, hasDisplay);
+          return { response: errorMsg, ttsComplete };
+        }
+      }
     }
 
     // Step 3: Get local date and time
