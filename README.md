@@ -38,6 +38,7 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Context aware** — Knows your location, date, time, weather, calendar, notifications, and conversation history
 - **Exchange tracking** — Conversation turns are grouped into "exchanges" (wake word to done). Each exchange gets auto-generated topic tags via a lightweight LLM call. The AI's system prompt shows 48 hours of exchange-grouped history with temporal labels ("today morning", "yesterday evening") and tags, so it can distinguish "this morning's conversation about cookies" from "right now"
 - **Conversation persistence** — History hydrated from DB on session start; 48-hour exchange-grouped context window. Each turn records which `user_context` rows were active (`context_ids`) and which exchange it belongs to (`exchange_id`), enabling full traceability of what the AI knew when it responded
+- **Claude Code bridge** — An MCP server connects Claude Code on your laptop to your smart glasses. Claude can ask you questions (spoken aloud through the glasses), wait for your voice response, and park messages if you're busy. Say "I'm ready" when you want to respond. Pairing is a one-time 6-digit code entry in the Settings UI
 - **Session resilience** — Survives network blips and idle socket timeouts with a 5-minute grace period; no "Welcome" replay on reconnect
 - **Timezone detection** — Auto-detects your timezone from GPS when the OS doesn't provide it
 - **Personalization** — Custom assistant name, wake word, and model selection per user
@@ -96,6 +97,7 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 - **Notification intelligence** — `NotificationManager` rewritten from `unknown`-typed stub to fully typed `PhoneNotification` handler with in-memory Map + `user_context` DB persistence (4-hour TTL). `onPhoneNotificationDismissed` wired to auto-remove stale entries. AI prompt shows notifications grouped by app with priority indicators. "Check my notifications" voice command gives instant spoken readout. Hydrates from DB on restart.
 - **Native web search** — Provider-native web search tools replace the Jina HTTP tool for all supported models. `resolveSearchTools()` checks `ModelInfo.supportsWebSearch` in the catalog and creates Anthropic `webSearch_20250305`, OpenAI `webSearch`, or Google `googleSearch` tools with user location forwarding. Models without native support fall back to Jina. `JINA_API_KEY` is no longer required when using native search.
 - **Photo intelligence** — `photo-analysis.ts` module provides `analyzePhoto()` (vision model analysis), `generatePhotoTags()` (LLM tag extraction from analysis text), `ensurePhotoAnalyzed()` (lazy backfill for photos missing analysis/tags), and `getRecentPhotosForPrompt()` (24h photo context for system prompt). Voice command photos now get automatic vision analysis + tagging via fire-and-forget chain in `DeviceCommandHandler`. Visual query photos get tags extracted from the LLM response. System prompt includes a "Recent Photos" section with relative timestamps, tags, and truncated analysis.
+- **Claude Code bridge** — `BridgeManager` implements a park-and-wait model: Claude Code sends a message via HTTP long-poll, the glasses speak it aloud, and `TranscriptionManager.bridgeResponseCallback` intercepts the user's voice response before normal processing. If the user says "I'm busy", the request is parked in memory; "I'm ready" replays it. Auth uses SHA-256 hashed API keys with one-time 6-digit pairing codes. Three new tables (`claude_mentra_pairs`, `pairing_codes`, `bridge_requests`) store pairings and audit logs. A standalone MCP server (`mcp-server/`) provides 6 tools for Claude Code integration via stdio transport.
 
 ### Supported Models
 
@@ -115,7 +117,8 @@ src/
 │   ├── MentraAI.ts                   # AppServer lifecycle (onSession/onStop) with soft disconnect
 │   ├── agent/
 │   │   ├── MentraAgent.ts            # AI SDK generateText() wrapper
-│   │   ├── comprehension-failure.ts  # Regex-based comprehension failure classifier
+│   │   ├── comprehension-failure.ts  # Regex classifier (comprehension failure)
+│   │   ├── visual-classifier.ts     # LLM-based visual query classifier
 │   │   ├── conversational-closers.ts # Regex-based closer classifier (gratitude, dismissal)
 │   │   ├── device-commands.ts        # Regex-based device command classifier (photo, battery, schedule, notifications)
 │   │   ├── prompt.ts                 # Dynamic system prompt builder (exchange-grouped history)
@@ -124,9 +127,15 @@ src/
 │   │   │   ├── registry.ts           # ProviderRegistry (resolve config → model)
 │   │   │   └── vision.ts             # Multi-provider vision API
 │   │   └── tools/                    # AI SDK tool definitions (search, calculator, thinking, places, directions)
+│   ├── bridge/
+│   │   ├── BridgeManager.ts          # Per-user bridge state: park-and-wait, replay, timeout
+│   │   ├── bridge-auth.ts            # API key auth middleware (SHA-256 hash)
+│   │   ├── bridge-commands.ts        # Regex classifiers (deferral + bridge commands)
+│   │   ├── bridge-routes.ts          # Hono routes for /api/bridge/ endpoints
+│   │   └── types.ts                  # Bridge request/response types
 │   ├── db/
 │   │   ├── client.ts                 # Drizzle + postgres connection
-│   │   ├── schema.ts                 # user_settings, conversations, turns, exchanges, user_context, photos
+│   │   ├── schema.ts                 # All table definitions (9 tables)
 │   │   ├── storage.ts               # Supabase Storage helpers (upload/download/delete photos)
 │   │   └── vault.ts                  # Supabase Vault helpers (store/retrieve/delete)
 │   ├── manager/
@@ -144,8 +153,11 @@ src/
 └── frontend/
     ├── App.tsx                       # React app with routing
     ├── pages/Settings.tsx            # Settings page
-    ├── components/ProviderSetup.tsx   # Provider config UI
+    ├── components/
+    │   ├── ProviderSetup.tsx         # Provider config UI
+    │   └── BridgePairing.tsx         # Claude Bridge pairing UI (6-digit code entry)
     └── api/settings.api.ts           # Frontend API client
+mcp-server/                           # Standalone MCP server for Claude Code (stdio transport)
 ```
 
 ## Interaction Flow

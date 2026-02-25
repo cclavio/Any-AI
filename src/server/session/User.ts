@@ -11,6 +11,7 @@ import { ChatHistoryManager } from "../manager/ChatHistoryManager";
 import { QueryProcessor } from "../manager/QueryProcessor";
 import { DeviceCommandHandler } from "../manager/DeviceCommandHandler";
 import { ExchangeManager } from "../manager/ExchangeManager";
+import { BridgeManager } from "../bridge/BridgeManager";
 import type { UserAIConfig } from "../agent/providers/types";
 import { DEFAULT_AI_CONFIG, getModelDisplayName } from "../agent/providers/types";
 import { db, isDbAvailable } from "../db/client";
@@ -82,6 +83,9 @@ export class User {
   /** Exchange tracking (groups turns into conversational exchanges) */
   exchange: ExchangeManager;
 
+  /** Claude Code bridge (park-and-wait notifications) */
+  bridge: BridgeManager;
+
   constructor(public readonly userId: string) {
     this.photo = new PhotoManager(this);
     this.transcription = new TranscriptionManager(this);
@@ -95,6 +99,7 @@ export class User {
     this.queryProcessor = new QueryProcessor(this);
     this.deviceCommand = new DeviceCommandHandler(this);
     this.exchange = new ExchangeManager(this);
+    this.bridge = new BridgeManager(this);
   }
 
   /**
@@ -203,6 +208,7 @@ export class User {
     this.calendar.destroy();
     this.chatHistory.destroy();
     this.exchange.destroy().catch(() => {});
+    this.bridge.destroy();
     this.appSession = null;
     console.log(`🗑️ User ${this.userId} cleaned up`);
   }

@@ -112,6 +112,45 @@ export const photos = pgTable("photos", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Claude-Mentra bridge pairs — links a Claude Code API key to a Mentra user.
+ */
+export const claudeMentraPairs = pgTable("claude_mentra_pairs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  apiKeyHash: text("api_key_hash").notNull().unique(),
+  mentraUserId: text("mentra_user_id").notNull(),
+  displayName: text("display_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * Short-lived pairing codes — 6-digit, 10-minute expiry.
+ */
+export const pairingCodes = pgTable("pairing_codes", {
+  code: text("code").primaryKey(),
+  apiKeyHash: text("api_key_hash").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  claimedBy: text("claimed_by"),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+});
+
+/**
+ * Bridge requests — audit log and deferred message store.
+ * Status: pending → responded | timeout → timeout_responded → consumed
+ */
+export const bridgeRequests = pgTable("bridge_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  apiKeyHash: text("api_key_hash").notNull(),
+  mentraUserId: text("mentra_user_id").notNull(),
+  conversationId: text("conversation_id"),
+  message: text("message").notNull(),
+  response: text("response"),
+  status: text("status").notNull().default("pending"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  respondedAt: timestamp("responded_at", { withTimezone: true }),
+});
+
 export const userContext = pgTable("user_context", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull(),

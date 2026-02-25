@@ -29,6 +29,11 @@ CLAUDE.md
 FEATURE_IDEAS.md
 MIGRATIONS.md
 
+# MCP server build artifacts (source is committed, built locally)
+mcp-server/dist/
+mcp-server/node_modules/
+mcp-server/package-lock.json
+
 # Logs
 *.log
 npm-debug.log*

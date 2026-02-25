@@ -204,3 +204,50 @@ export const validateGoogleCloudKey = async (
   if (!response.ok) throw new Error("Failed to validate Google Cloud key");
   return response.json();
 };
+
+// ─── Claude Bridge Pairing ───
+
+/**
+ * Confirm a bridge pairing code (entered in the glasses app webview)
+ */
+export const confirmBridgePairing = async (
+  code: string
+): Promise<{ success: boolean; error?: string }> => {
+  const response = await fetch(`${getApiUrl()}/api/pair/confirm`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ code }),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    return { success: false, error: data.error || "Failed to confirm pairing" };
+  }
+  return data;
+};
+
+/**
+ * Get bridge pairing status for the current user
+ */
+export const getBridgePairingStatus = async (): Promise<{
+  paired: boolean;
+  displayName?: string;
+}> => {
+  const response = await fetch(`${getApiUrl()}/api/pair/status`, {
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to fetch pairing status");
+  return response.json();
+};
+
+/**
+ * Unpair the Claude Code bridge
+ */
+export const unpairBridge = async (): Promise<{ success: boolean }> => {
+  const response = await fetch(`${getApiUrl()}/api/pair/unpair`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!response.ok) throw new Error("Failed to unpair");
+  return response.json();
+};

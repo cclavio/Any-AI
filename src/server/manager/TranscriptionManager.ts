@@ -6,6 +6,7 @@ import { detectWakeWord, removeWakeWord } from "../utils/wake-word";
 import { isVisualQuery } from "../agent/visual-classifier";
 import { classifyDeviceCommand, type DeviceCommand } from "../agent/device-commands";
 import { classifyCloser } from "../agent/conversational-closers";
+import { classifyBridgeCommand } from "../bridge/bridge-commands";
 import { isComprehensionFailure } from "../agent/comprehension-failure";
 import { getDefaultSoundUrl, COMPREHENSION_SETTINGS } from "../constants/config";
 
@@ -81,6 +82,9 @@ export class TranscriptionManager {
 
   // Callback for device commands (short-circuits AI pipeline)
   private onDeviceCommand: OnDeviceCommandCallback | null = null;
+
+  /** One-shot callback for bridge response collection. Set by BridgeManager, cleared after use. */
+  bridgeResponseCallback: ((transcript: string) => void) | null = null;
 
   // Session disconnect safety — prevents zombie query processing
   private destroyed = false;
@@ -265,6 +269,15 @@ export class TranscriptionManager {
 
     const query = this.currentTranscript.trim();
 
+    // Bridge intercept — route transcript to Claude Code (handles empty, deferral, and real responses)
+    if (this.bridgeResponseCallback) {
+      const callback = this.bridgeResponseCallback;
+      this.bridgeResponseCallback = null;
+      callback(query); // BridgeManager decides: real response vs deferral vs silence
+      this.resetState();
+      return;
+    }
+
     // Empty query → comprehension failure (silence after wake word)
     if (!query) {
       this.failedComprehensionCount++;
@@ -316,6 +329,19 @@ export class TranscriptionManager {
           this.resetState();
         }
       }
+      return;
+    }
+
+    // Check for bridge commands ("I'm ready", "check messages")
+    const bridgeCmd = classifyBridgeCommand(query);
+    if (bridgeCmd && this.user.bridge.hasParkedRequest()) {
+      console.log(`📬 Bridge command detected: ${bridgeCmd.type} for "${query}"`);
+      try {
+        await this.user.bridge.replayParkedMessage();
+      } catch (error) {
+        console.error("Error replaying parked message:", error);
+      }
+      this.resetState();
       return;
     }
 

@@ -29,6 +29,7 @@ import {
 } from "../api/settings";
 import { chatStream } from "../api/chat";
 import { killSession } from "../api/debug";
+import { bridgeApi, confirmPairing, getPairingStatus, unpairBridge } from "../bridge/bridge-routes";
 
 const API_KEY = process.env.MENTRAOS_API_KEY || "";
 const PACKAGE_NAME = process.env.PACKAGE_NAME || "";
@@ -38,6 +39,9 @@ export const api = new Hono();
 
 // Health check is public (no auth required)
 api.get("/health", getHealth);
+
+// Bridge API (uses its own API key auth — must be mounted before SDK auth middleware)
+api.route("/bridge", bridgeApi);
 
 // Apply SDK auth middleware to all other routes
 const authMiddleware = createAuthMiddleware({
@@ -77,6 +81,11 @@ api.post("/settings/google-cloud/validate", validateGoogleCloudKeyEndpoint);
 
 // Provider catalog (static, public-ish but still behind auth)
 api.get("/providers/catalog", getProviderCatalog);
+
+// Claude Bridge pairing (webview — behind SDK auth)
+api.post("/pair/confirm", confirmPairing);
+api.get("/pair/status", getPairingStatus);
+api.post("/pair/unpair", unpairBridge);
 
 // Photos
 api.get("/photos", listPhotos);
