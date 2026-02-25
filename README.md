@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  Choose your AI provider (OpenAI, Anthropic, or Google), add your API key, and pick your model.<br/>
+  Choose your AI provider (OpenAI, Anthropic, Google, or your own local server), add your API key, and pick your model.<br/>
   Say "Hey Any AI", ask a question, and get a concise spoken or displayed response.<br/>
   See what you see. Search the web. Remember context.
 </p>
@@ -26,9 +26,9 @@ Any AI is an intelligent voice assistant for MentraOS smart glasses. It adapts t
 - **Conversational closers** — Say "thanks", "I'm good", or "that's all" to end an exchange instantly without triggering the AI. Gratitude closers get a quick "You're welcome!" response; dismissals return to idle silently
 - **Comprehension auto-close** — If the AI can't understand you twice in a row (noisy environment, mumbling), it gracefully ends the exchange instead of looping "please repeat that" indefinitely
 - **Voice commands** — Say "take a photo", "what's my battery?", "what's my schedule?", or "check my notifications" for instant device responses (bypasses the AI pipeline)
-- **Multi-provider** — Choose between OpenAI, Anthropic, or Google
+- **Multi-provider** — Choose between OpenAI, Anthropic, Google, or a custom/local server (Ollama, LM Studio, vLLM, llama.cpp — anything with an OpenAI-compatible API)
 - **Bring your own key** — Use your own API keys, stored securely in Supabase Vault
-- **Vision** — Answers questions about what you're seeing (smart photo capture with shutter sound feedback)
+- **Vision** — Answers questions about what you're seeing (smart photo capture with shutter sound feedback). Vision can be independently configured or disabled entirely — visual queries get a spoken "image analysis isn't available" message when vision is off
 - **Photo intelligence** — All photos are automatically analyzed by the vision model and tagged. Voice command photos ("take a photo") are uploaded to Supabase Storage and get vision analysis + auto-generated tags. Visual query photos store the LLM response as analysis. The last 24 hours of photos (with tags and summaries) are injected into the AI's context, so you can ask "what was in that photo?" without retaking it. Photos missing analysis are backfilled lazily on the next query.
 - **Web search** — Provider-native web search (Anthropic, OpenAI, Google) with automatic fallback to Jina for models without native search support
 - **Location services** — Nearby places, directions, weather, air quality, and pollen data (optional Google Cloud API key)
@@ -54,10 +54,10 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 
 | | Mentra AI 2 | Any AI |
 |---|---|---|
-| **Providers** | Google Gemini only | OpenAI, Anthropic, Google |
+| **Providers** | Google Gemini only | OpenAI, Anthropic, Google, Custom/Local |
 | **API keys** | Single server env var | Per-user, encrypted in Supabase Vault |
-| **Model selection** | Hardcoded | User picks from model catalog in Settings |
-| **Vision provider** | Same as LLM | Independently configurable |
+| **Model selection** | Hardcoded | User picks from model catalog or enters custom model name |
+| **Vision provider** | Same as LLM | Independently configurable (or disable entirely) |
 
 ### Framework Swap
 
@@ -107,6 +107,7 @@ Any AI is a fork of [Mentra AI 2](https://github.com/mentra-app/mentra-ai-2) wit
 | **OpenAI** | GPT-5.2, GPT-5.1, GPT-5, GPT-5 Mini, GPT-4o, GPT-4o Mini, GPT-4.1, GPT-4.1 Mini |
 | **Anthropic** | Claude Opus 4.6, Claude Sonnet 4.6, Claude Sonnet 4.5, Claude Haiku 4.5 |
 | **Google** | Gemini 2.5 Flash, Gemini 2.5 Flash Lite, Gemini 2.5 Pro |
+| **Custom / Local** | Any model on an OpenAI-compatible server (Ollama, LM Studio, vLLM, llama.cpp, etc.) |
 
 ## Architecture
 

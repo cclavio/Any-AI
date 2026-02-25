@@ -5,8 +5,8 @@
  * Replaces the Phase 1 shim in MentraAgent.ts.
  */
 
-/** Supported AI providers */
-export type Provider = "openai" | "anthropic" | "google";
+/** Supported AI providers ("none" = explicitly disabled, used for vision opt-out) */
+export type Provider = "openai" | "anthropic" | "google" | "custom" | "none";
 
 /** Model definition with metadata */
 export interface ModelInfo {
@@ -46,6 +46,8 @@ export const MODEL_CATALOG: Record<Provider, ModelInfo[]> = {
     { id: "gemini-2.5-flash-lite", name: "Gemini 2.5 Flash Lite", provider: "google", supportsVision: true, supportsWebSearch: true, contextWindow: 1048576 },
     { id: "gemini-2.5-pro",        name: "Gemini 2.5 Pro",        provider: "google", supportsVision: true, supportsWebSearch: true, contextWindow: 1048576 },
   ],
+  custom: [],
+  none: [],
 };
 
 /** Display names for providers */
@@ -53,6 +55,8 @@ export const PROVIDER_DISPLAY_NAMES: Record<Provider, string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",
   google: "Google",
+  custom: "Custom / Local",
+  none: "None — Disabled",
 };
 
 /**
@@ -75,6 +79,14 @@ export interface UserAIConfig {
 
   /** Optional Google Cloud API key for location/weather/places/directions/timezone services */
   googleCloudApiKey?: string;
+
+  /** Custom/local LLM server config */
+  llmCustomBaseUrl?: string;
+  llmCustomProviderName?: string;
+
+  /** Custom/local vision server config (can differ from LLM) */
+  visionCustomBaseUrl?: string;
+  visionCustomProviderName?: string;
 
   isConfigured: boolean;
 }

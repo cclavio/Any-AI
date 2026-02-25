@@ -13,6 +13,7 @@ interface VisionRequest {
   apiKey: string;
   provider: Provider;
   modelId: string;
+  baseURL?: string;
 }
 
 /**
@@ -29,6 +30,10 @@ export async function callVisionAPI(req: VisionRequest): Promise<string> {
       return callAnthropicVision(req.modelId, base64Image, req.prompt, req.apiKey);
     case "google":
       return callGeminiVision(req.modelId, base64Image, req.prompt, req.apiKey);
+    case "custom":
+      return callCustomVision(req.modelId, base64Image, req.prompt, req.apiKey, req.baseURL!);
+    case "none":
+      return "";
   }
 }
 
@@ -95,4 +100,28 @@ async function callGeminiVision(model: string, base64: string, prompt: string, a
   );
   const data = await res.json();
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+}
+
+async function callCustomVision(model: string, base64: string, prompt: string, apiKey: string, baseURL: string): Promise<string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+  }
+  const res = await fetch(`${baseURL.replace(/\/+$/, "")}/chat/completions`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model,
+      max_tokens: 50,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${base64}` } },
+        ],
+      }],
+    }),
+  });
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content ?? "";
 }

@@ -15,8 +15,8 @@ export interface UserSettings {
 export interface ProviderConfig {
   agentName: string;
   wakeWord: string;
-  llm: { provider: string; model: string; isConfigured: boolean };
-  vision: { provider: string; model: string; isConfigured: boolean };
+  llm: { provider: string; model: string; isConfigured: boolean; customBaseUrl?: string; customProviderName?: string };
+  vision: { provider: string; model: string; isConfigured: boolean; customBaseUrl?: string; customProviderName?: string };
   googleCloud: { isConfigured: boolean };
 }
 
@@ -99,6 +99,8 @@ export const saveProviderConfig = async (params: {
   provider: string;
   model: string;
   apiKey?: string;
+  baseUrl?: string;
+  providerName?: string;
 }): Promise<{ success: boolean; error?: string }> => {
   const response = await fetch(`${getApiUrl()}/api/settings/provider`, {
     method: "POST",
@@ -127,6 +129,23 @@ export const validateProviderKey = async (
     body: JSON.stringify({ provider, apiKey }),
   });
   if (!response.ok) throw new Error("Failed to validate API key");
+  return response.json();
+};
+
+/**
+ * Validate a custom/local endpoint is reachable
+ */
+export const validateCustomEndpoint = async (
+  baseUrl: string,
+  apiKey?: string,
+): Promise<{ reachable: boolean; error?: string }> => {
+  const response = await fetch(`${getApiUrl()}/api/settings/provider/validate-custom`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ baseUrl, apiKey }),
+  });
+  if (!response.ok) throw new Error("Failed to validate custom endpoint");
   return response.json();
 };
 

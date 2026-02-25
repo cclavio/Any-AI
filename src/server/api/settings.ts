@@ -14,7 +14,7 @@ import { eq } from "drizzle-orm";
 import { sessions } from "../manager/SessionManager";
 import { MODEL_CATALOG, PROVIDER_DISPLAY_NAMES } from "../agent/providers/types";
 import type { Provider } from "../agent/providers/types";
-import { validateApiKey } from "../agent/providers/registry";
+import { validateApiKey, validateCustomEndpoint as validateCustomEndpointFn } from "../agent/providers/registry";
 
 /** In-memory fallback store (used when DATABASE_URL is not configured) */
 const settingsStore = new Map<string, Record<string, any>>();
@@ -156,12 +156,16 @@ export async function getProviderConfig(c: Context) {
       llm: {
         provider: settings.llmProvider ?? "openai",
         model: settings.llmModel ?? "gpt-5-mini",
-        isConfigured: !!settings.llmApiKeyVaultId,
+        isConfigured: !!settings.llmApiKeyVaultId || settings.llmProvider === "custom",
+        customBaseUrl: settings.llmCustomBaseUrl ?? undefined,
+        customProviderName: settings.llmCustomProviderName ?? undefined,
       },
       vision: {
         provider: settings.visionProvider ?? "google",
         model: settings.visionModel ?? "gemini-2.5-flash",
-        isConfigured: !!settings.visionApiKeyVaultId,
+        isConfigured: !!settings.visionApiKeyVaultId || settings.visionProvider === "custom" || settings.visionProvider === "none",
+        customBaseUrl: settings.visionCustomBaseUrl ?? undefined,
+        customProviderName: settings.visionCustomProviderName ?? undefined,
       },
       googleCloud: {
         isConfigured: !!settings.googleCloudApiKeyVaultId,
@@ -185,14 +189,16 @@ export async function saveProviderConfig(c: Context) {
 
   try {
     const body = await c.req.json();
-    const { purpose, provider, model, apiKey } = body as {
+    const { purpose, provider, model, apiKey, baseUrl, providerName } = body as {
       purpose: "llm" | "vision";
       provider: Provider;
       model: string;
       apiKey?: string;
+      baseUrl?: string;
+      providerName?: string;
     };
 
-    if (!purpose || !provider || !model) {
+    if (!purpose || !provider || (!model && provider !== "none")) {
       return c.json({ error: "Missing required fields: purpose, provider, model" }, 400);
     }
 
@@ -200,13 +206,30 @@ export async function saveProviderConfig(c: Context) {
       return c.json({ error: "purpose must be 'llm' or 'vision'" }, 400);
     }
 
-    if (!MODEL_CATALOG[provider]) {
-      return c.json({ error: `Unknown provider: ${provider}` }, 400);
+    // "none" is only valid for vision — prevents accidentally disabling LLM
+    if (provider === "none" && purpose === "llm") {
+      return c.json({ error: "Cannot disable LLM provider" }, 400);
     }
 
-    const modelInfo = MODEL_CATALOG[provider].find(m => m.id === model);
-    if (!modelInfo) {
-      return c.json({ error: `Unknown model: ${model} for provider ${provider}` }, 400);
+    const isCustom = provider === "custom";
+    const isNone = provider === "none";
+
+    if (isNone) {
+      // "None" provider: skip all validation, just save provider as "none"
+    } else if (isCustom) {
+      // Custom provider: require base URL, skip catalog validation
+      if (!baseUrl) {
+        return c.json({ error: "Custom provider requires a base URL" }, 400);
+      }
+    } else {
+      // Standard provider: validate against catalog
+      if (!MODEL_CATALOG[provider]) {
+        return c.json({ error: `Unknown provider: ${provider}` }, 400);
+      }
+      const modelInfo = MODEL_CATALOG[provider].find(m => m.id === model);
+      if (!modelInfo) {
+        return c.json({ error: `Unknown model: ${model} for provider ${provider}` }, 400);
+      }
     }
 
     if (!isDbAvailable()) {
@@ -219,7 +242,52 @@ export async function saveProviderConfig(c: Context) {
       .from(userSettings)
       .where(eq(userSettings.userId, userId));
 
-    if (apiKey) {
+    if (isNone) {
+      // "None" provider: just save provider as "none", clear model/key/custom fields
+      const updateFields = {
+        visionProvider: "none", visionModel: "none",
+        visionApiKeyVaultId: null,
+        visionCustomBaseUrl: null, visionCustomProviderName: null,
+        updatedAt: new Date(),
+      };
+
+      // Delete existing Vault secret if there was one
+      if (existing?.visionApiKeyVaultId) {
+        await deleteApiKey(existing.visionApiKeyVaultId);
+      }
+
+      if (!existing) {
+        await db.insert(userSettings).values({ userId, ...updateFields });
+      } else {
+        await db.update(userSettings).set(updateFields).where(eq(userSettings.userId, userId));
+      }
+    } else if (isCustom) {
+      // Custom provider: store base URL, optionally store API key in Vault
+      let vaultId: string | null = null;
+      if (apiKey) {
+        vaultId = await storeApiKey(userId, provider, purpose, apiKey);
+      }
+
+      const updateFields = purpose === "llm"
+        ? {
+            llmProvider: provider, llmModel: model, llmCustomBaseUrl: baseUrl!,
+            llmCustomProviderName: providerName || null,
+            ...(vaultId ? { llmApiKeyVaultId: vaultId } : {}),
+            isAiConfigured: true, updatedAt: new Date(),
+          }
+        : {
+            visionProvider: provider, visionModel: model, visionCustomBaseUrl: baseUrl!,
+            visionCustomProviderName: providerName || null,
+            ...(vaultId ? { visionApiKeyVaultId: vaultId } : {}),
+            updatedAt: new Date(),
+          };
+
+      if (!existing) {
+        await db.insert(userSettings).values({ userId, ...updateFields });
+      } else {
+        await db.update(userSettings).set(updateFields).where(eq(userSettings.userId, userId));
+      }
+    } else if (apiKey) {
       // New API key provided — validate and store in Vault
       const isValid = await validateApiKey(provider, apiKey);
       if (!isValid) {
@@ -282,11 +350,11 @@ export async function validateProviderKey(c: Context) {
       return c.json({ error: "Missing required fields: provider, apiKey" }, 400);
     }
 
-    if (!MODEL_CATALOG[provider]) {
+    if (provider !== "custom" && provider !== "none" && !MODEL_CATALOG[provider as Provider]) {
       return c.json({ error: `Unknown provider: ${provider}` }, 400);
     }
 
-    const isValid = await validateApiKey(provider, apiKey);
+    const isValid = await validateApiKey(provider as Provider, apiKey);
     return c.json({ valid: isValid, provider });
   } catch (error) {
     console.error("Error validating API key:", error);
@@ -486,6 +554,29 @@ async function validateGoogleCloudApiKey(apiKey: string): Promise<boolean> {
     return data.status === "OK" || data.status === "ZERO_RESULTS";
   } catch {
     return false;
+  }
+}
+
+/**
+ * POST /api/settings/provider/validate-custom — Validate a custom endpoint is reachable
+ */
+export async function validateCustomEndpoint(c: Context) {
+  const userId = c.get("authUserId") as string | undefined;
+  if (!userId) return c.json({ error: "Unauthorized" }, 401);
+
+  try {
+    const body = await c.req.json();
+    const { baseUrl, apiKey } = body as { baseUrl: string; apiKey?: string };
+
+    if (!baseUrl) {
+      return c.json({ error: "Missing required field: baseUrl" }, 400);
+    }
+
+    const result = await validateCustomEndpointFn(baseUrl, apiKey);
+    return c.json(result);
+  } catch (error) {
+    console.error("Error validating custom endpoint:", error);
+    return c.json({ error: "Failed to validate custom endpoint" }, 500);
   }
 }
 

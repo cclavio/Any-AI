@@ -37,6 +37,12 @@ export const userSettings = pgTable("user_settings", {
   visionModel: text("vision_model").default("gemini-2.5-flash"),
   visionApiKeyVaultId: text("vision_api_key_vault_id"),
 
+  // Custom/local model server config (separate per-purpose so LLM and vision can use different servers)
+  llmCustomBaseUrl: text("llm_custom_base_url"),
+  llmCustomProviderName: text("llm_custom_provider_name"),
+  visionCustomBaseUrl: text("vision_custom_base_url"),
+  visionCustomProviderName: text("vision_custom_provider_name"),
+
   // Google Cloud API key (optional — enables location, weather, places, directions, timezone)
   googleCloudApiKeyVaultId: text("google_cloud_api_key_vault_id"),
 

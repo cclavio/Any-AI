@@ -64,6 +64,34 @@ export class QueryProcessor {
     this.showStatus("Processing...", hasDisplay);
     lap('PROCESSING-SOUND');
 
+    // If vision is disabled ("none"), short-circuit visual queries with helpful feedback
+    if (isVisual && this.user.aiConfig?.visionProvider === "none") {
+      this.stopProcessingSound();
+      const noVisionMsg = "Image analysis isn't available right now. You can enable it by setting up a vision provider in your settings.";
+      console.log(`📸 Visual query skipped — vision provider is "none" for ${this.user.userId}`);
+
+      broadcastChatEvent(this.user.userId, {
+        type: "message",
+        id: `user-${Date.now()}`,
+        senderId: this.user.userId,
+        recipientId: "mentra-ai",
+        content: query,
+        timestamp: new Date().toISOString(),
+      });
+      broadcastChatEvent(this.user.userId, {
+        type: "message",
+        id: `ai-${Date.now()}`,
+        senderId: "mentra-ai",
+        recipientId: this.user.userId,
+        content: noVisionMsg,
+        timestamp: new Date().toISOString(),
+      });
+      broadcastChatEvent(this.user.userId, { type: "idle" });
+
+      const ttsComplete = this.outputResponse(noVisionMsg, hasSpeakers, hasDisplay);
+      return { response: noVisionMsg, ttsComplete };
+    }
+
     // Step 1: Use pre-captured photo, or fallback capture (only for visual queries)
     let photoBuffers: Buffer[] = [];
     let photoDataUrl: string | undefined;

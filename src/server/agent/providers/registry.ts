@@ -16,6 +16,13 @@ import { MODEL_CATALOG } from "./types";
  * Resolve the user's LLM config into an AI SDK LanguageModel.
  */
 export function resolveLLMModel(config: UserAIConfig): LanguageModel {
+  if (config.llmProvider === "custom") {
+    if (!config.llmCustomBaseUrl) {
+      throw new Error("Custom LLM provider requires a base URL");
+    }
+    return createModelInstance("custom", config.llmModel, config.llmApiKey, config.llmCustomBaseUrl);
+  }
+
   const providerModels = MODEL_CATALOG[config.llmProvider];
   const model = providerModels?.find((m) => m.id === config.llmModel);
   if (!model) {
@@ -33,6 +40,21 @@ export function resolveVisionModel(config: UserAIConfig): {
   apiKey: string;
   provider: Provider;
 } {
+  if (config.visionProvider === "none") {
+    throw new Error("Vision is disabled (provider set to 'none')");
+  }
+
+  if (config.visionProvider === "custom") {
+    if (!config.visionCustomBaseUrl) {
+      throw new Error("Custom vision provider requires a base URL");
+    }
+    return {
+      model: createModelInstance("custom", config.visionModel, config.visionApiKey, config.visionCustomBaseUrl),
+      apiKey: config.visionApiKey,
+      provider: "custom",
+    };
+  }
+
   const providerModels = MODEL_CATALOG[config.visionProvider];
   const model = providerModels?.find((m) => m.id === config.visionModel);
   if (!model) {
@@ -50,7 +72,7 @@ export function resolveVisionModel(config: UserAIConfig): {
 }
 
 /** Create an AI SDK LanguageModel for the given provider + model + key */
-function createModelInstance(provider: Provider, modelId: string, apiKey: string): LanguageModel {
+function createModelInstance(provider: Provider, modelId: string, apiKey: string, baseURL?: string): LanguageModel {
   switch (provider) {
     case "openai":
       return createOpenAI({ apiKey })(modelId);
@@ -58,6 +80,10 @@ function createModelInstance(provider: Provider, modelId: string, apiKey: string
       return createAnthropic({ apiKey })(modelId);
     case "google":
       return createGoogleGenerativeAI({ apiKey })(modelId);
+    case "custom":
+      return createOpenAI({ apiKey: apiKey || "not-needed", baseURL })(modelId);
+    case "none":
+      throw new Error("Cannot create model instance for disabled provider ('none')");
   }
 }
 
@@ -99,8 +125,42 @@ export async function validateApiKey(provider: Provider, apiKey: string): Promis
         );
         return res.ok;
       }
+      case "custom":
+        // Can't validate custom provider keys generically — always pass
+        return true;
+      case "none":
+        // No provider = nothing to validate
+        return true;
     }
   } catch {
     return false;
+  }
+}
+
+/**
+ * Validate a custom endpoint is reachable.
+ * Attempts GET /models (OpenAI-compatible) with 5s timeout.
+ * Returns { reachable, models? } — models is the list if the endpoint returns them.
+ */
+export async function validateCustomEndpoint(
+  baseURL: string,
+  apiKey?: string,
+): Promise<{ reachable: boolean; error?: string }> {
+  try {
+    const headers: Record<string, string> = {};
+    if (apiKey) {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+    const res = await fetch(`${baseURL.replace(/\/+$/, "")}/models`, {
+      headers,
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      return { reachable: true };
+    }
+    return { reachable: false, error: `Server returned ${res.status}` };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return { reachable: false, error: message };
   }
 }

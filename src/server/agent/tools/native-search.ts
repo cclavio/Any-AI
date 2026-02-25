@@ -75,6 +75,10 @@ export function resolveSearchTools(options: NativeSearchOptions): Record<string,
           google_search: google.tools.googleSearch({}),
         };
       }
+      case "custom":
+      case "none":
+        // Custom/disabled providers don't support native search — use Jina fallback
+        return jinaFallback();
     }
   } catch (error) {
     console.warn(`⚠️ Native search tool creation failed for ${provider}, falling back to Jina:`, error);

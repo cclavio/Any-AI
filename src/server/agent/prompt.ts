@@ -89,7 +89,9 @@ export function buildSystemPrompt(context: AgentContext): string {
 function buildIdentitySection(config?: UserAIConfig): string {
   const agentName = config?.agentName || "Any AI";
   const modelName = config?.llmModelName || "Gemini 2.5 Flash";
-  const providerName = PROVIDER_DISPLAY_NAMES[config?.llmProvider || "google"] || "Google";
+  const providerName = (config?.llmProvider === "custom" && config?.llmCustomProviderName)
+    ? config.llmCustomProviderName
+    : PROVIDER_DISPLAY_NAMES[config?.llmProvider || "google"] || "Google";
 
   return `# ${agentName}
 

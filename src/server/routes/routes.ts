@@ -21,6 +21,7 @@ import {
   getProviderConfig,
   saveProviderConfig,
   validateProviderKey,
+  validateCustomEndpoint,
   deleteProviderConfig,
   getProviderCatalog,
   saveGoogleCloudKey,
@@ -76,6 +77,7 @@ api.patch("/settings", updateSettings);
 api.get("/settings/provider", getProviderConfig);
 api.post("/settings/provider", saveProviderConfig);
 api.post("/settings/provider/validate", validateProviderKey);
+api.post("/settings/provider/validate-custom", validateCustomEndpoint);
 api.delete("/settings/provider/:purpose", deleteProviderConfig);
 
 // Google Cloud API key management

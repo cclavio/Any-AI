@@ -141,7 +141,7 @@ export class User {
     if (settings.llmApiKeyVaultId) {
       llmApiKey = (await getApiKey(settings.llmApiKeyVaultId)) ?? "";
     }
-    if (settings.visionApiKeyVaultId) {
+    if (settings.visionApiKeyVaultId && settings.visionProvider !== "none") {
       visionApiKey = (await getApiKey(settings.visionApiKeyVaultId)) ?? "";
     }
     if (settings.googleCloudApiKeyVaultId) {
@@ -152,17 +152,26 @@ export class User {
     const llmModel = settings.llmModel ?? "gpt-5-mini";
     const visionProvider = (settings.visionProvider ?? "google") as UserAIConfig["visionProvider"];
 
+    // For custom providers, use the user-supplied provider name; otherwise use catalog lookup
+    const llmModelName = llmProvider === "custom" && settings.llmCustomProviderName
+      ? settings.llmCustomProviderName
+      : getModelDisplayName(llmProvider, llmModel);
+
     this.aiConfig = {
       agentName: settings.agentName,
       wakeWord: settings.wakeWord,
       llmProvider,
       llmModel,
-      llmModelName: getModelDisplayName(llmProvider, llmModel),
+      llmModelName,
       llmApiKey,
       visionProvider,
       visionModel: settings.visionModel ?? "gemini-2.5-flash",
       visionApiKey,
       googleCloudApiKey,
+      llmCustomBaseUrl: settings.llmCustomBaseUrl ?? undefined,
+      llmCustomProviderName: settings.llmCustomProviderName ?? undefined,
+      visionCustomBaseUrl: settings.visionCustomBaseUrl ?? undefined,
+      visionCustomProviderName: settings.visionCustomProviderName ?? undefined,
       isConfigured: settings.isAiConfigured,
     };
   }
