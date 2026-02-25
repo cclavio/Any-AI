@@ -484,9 +484,26 @@ export class TranscriptionManager {
     // Timer starts AFTER TTS finishes (not during)
     this.followUpTimeout = setTimeout(() => {
       if (this.isFollowUpMode && !this.isProcessing) {
-        console.log(`⏰ Follow-up window expired for ${this.user.userId}, returning to IDLE`);
-        this.user.exchange.endExchange("follow_up_timeout").catch(console.error);
-        this.resetState();
+        // Yield to event loop — let any in-flight transcription events process first.
+        // This prevents a race where speech arrives at the same instant as the timeout
+        // and would be dropped because resetState() clears isListening before the
+        // transcription handler runs.
+        setTimeout(() => {
+          // Re-check: if speech arrived during yield, follow-up mode was already cancelled
+          if (!this.isFollowUpMode || this.isProcessing) return;
+
+          // If transcript accumulated during yield, process it instead of dropping
+          if (this.currentTranscript.trim().length > 0) {
+            console.log(`⏰ Follow-up timeout fired but speech pending: "${this.currentTranscript.trim().slice(0, 40)}..." — processing`);
+            this.isFollowUpMode = false;
+            this.processCurrentQuery();
+            return;
+          }
+
+          console.log(`⏰ Follow-up window expired for ${this.user.userId}, returning to IDLE`);
+          this.user.exchange.endExchange("follow_up_timeout").catch(console.error);
+          this.resetState();
+        }, 0);
       }
     }, this.FOLLOW_UP_WINDOW_MS);
 
