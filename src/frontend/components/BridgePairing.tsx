@@ -6,6 +6,7 @@ import {
   unpairBridge,
   type BridgeKeyInfo,
 } from '../api/settings.api';
+import { SettingDivider } from './settings-ui';
 
 export default function BridgePairing() {
   const [keys, setKeys] = useState<BridgeKeyInfo[]>([]);
@@ -93,11 +94,8 @@ export default function BridgePairing() {
 
   if (loading) {
     return (
-      <div
-        className="h-[48px] rounded-[16px] flex items-center justify-center"
-        style={{ backgroundColor: 'var(--primary-foreground)' }}
-      >
-        <Loader2 size={16} className="animate-spin" style={{ color: 'var(--muted-foreground)' }} />
+      <div className="h-12 rounded-2xl flex items-center justify-center bg-primary-foreground">
+        <Loader2 size={16} className="animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -105,106 +103,74 @@ export default function BridgePairing() {
   // ── Just generated a key — show it once ──
   if (generatedKey) {
     return (
-      <div
-        className="rounded-[16px] overflow-hidden"
-        style={{ backgroundColor: 'var(--primary-foreground)' }}
-      >
-        <div className="px-[5px] py-[12px]">
-          <p
-            className="text-[14px] leading-[22px] font-medium"
-            style={{ color: 'var(--secondary-foreground)' }}
-          >
+      <div className="rounded-2xl overflow-hidden bg-primary-foreground">
+        <div className="px-1.5 py-3">
+          <p className="text-[14px] leading-[22px] font-medium text-secondary-foreground">
             Your API key has been created. Copy it now — it won't be shown again.
           </p>
         </div>
 
-        <div className="mx-[5px]" style={{ borderBottom: '1px solid var(--border)' }} />
+        <SettingDivider />
 
         {/* API Key */}
-        <div className="px-[5px] py-[12px]">
-          <p
-            className="text-[13px] font-medium mb-[6px]"
-            style={{ color: 'var(--muted-foreground)' }}
-          >
+        <div className="px-1.5 py-3">
+          <p className="text-[13px] font-medium mb-1.5 text-muted-foreground">
             API Key
           </p>
           <div className="flex items-center gap-2">
-            <code
-              className="flex-1 text-[13px] px-[10px] py-[8px] rounded-[8px] break-all select-all"
-              style={{
-                backgroundColor: 'var(--background)',
-                color: 'var(--secondary-foreground)',
-                border: '1px solid var(--border)',
-              }}
-            >
+            <code className="flex-1 text-[13px] px-2.5 py-2 rounded-lg break-all select-all bg-background text-secondary-foreground border border-border">
               {generatedKey}
             </code>
             <button
               onClick={() => copyToClipboard(generatedKey, 'key')}
-              className="shrink-0 p-[8px] rounded-[8px] transition-colors"
-              style={{ backgroundColor: 'var(--accent)' }}
+              className="shrink-0 p-2 rounded-lg bg-accent transition-colors"
               type="button"
             >
               {keyCopied ? (
                 <Check size={16} className="text-green-500" />
               ) : (
-                <Copy size={16} style={{ color: 'var(--muted-foreground)' }} />
+                <Copy size={16} className="text-muted-foreground" />
               )}
             </button>
           </div>
         </div>
 
-        <div className="mx-[5px]" style={{ borderBottom: '1px solid var(--border)' }} />
+        <SettingDivider />
 
         {/* MCP Command */}
         {mcpCommand && (
           <>
-            <div className="px-[5px] py-[12px]">
-              <p
-                className="text-[13px] font-medium mb-[6px]"
-                style={{ color: 'var(--muted-foreground)' }}
-              >
+            <div className="px-1.5 py-3">
+              <p className="text-[13px] font-medium mb-1.5 text-muted-foreground">
                 Run this in your terminal
               </p>
               <div className="flex items-center gap-2">
-                <code
-                  className="flex-1 text-[12px] px-[10px] py-[8px] rounded-[8px] break-all select-all"
-                  style={{
-                    backgroundColor: 'var(--background)',
-                    color: 'var(--secondary-foreground)',
-                    border: '1px solid var(--border)',
-                  }}
-                >
+                <code className="flex-1 text-[12px] px-2.5 py-2 rounded-lg break-all select-all bg-background text-secondary-foreground border border-border">
                   {mcpCommand}
                 </code>
                 <button
                   onClick={() => copyToClipboard(mcpCommand, 'cmd')}
-                  className="shrink-0 p-[8px] rounded-[8px] transition-colors"
-                  style={{ backgroundColor: 'var(--accent)' }}
+                  className="shrink-0 p-2 rounded-lg bg-accent transition-colors"
                   type="button"
                 >
                   {cmdCopied ? (
                     <Check size={16} className="text-green-500" />
                   ) : (
-                    <Copy size={16} style={{ color: 'var(--muted-foreground)' }} />
+                    <Copy size={16} className="text-muted-foreground" />
                   )}
                 </button>
               </div>
             </div>
 
-            <div className="mx-[5px]" style={{ borderBottom: '1px solid var(--border)' }} />
+            <SettingDivider />
           </>
         )}
 
         {/* Done button */}
-        <div className="px-[5px] py-[12px]">
+        <div className="px-1.5 py-3">
           <button
             onClick={() => setGeneratedKey(null)}
-            className="w-full h-[40px] rounded-[12px] text-[15px] font-semibold"
-            style={{
-              backgroundColor: 'var(--secondary-foreground)',
-              color: 'var(--primary-foreground)',
-            }}
+            className="w-full h-10 rounded-xl text-[15px] font-semibold bg-secondary-foreground text-primary-foreground"
             type="button"
           >
             Done
@@ -219,37 +185,22 @@ export default function BridgePairing() {
     <div className="space-y-3">
       {/* Existing keys */}
       {keys.length > 0 && (
-        <div
-          className="rounded-[16px] overflow-hidden"
-          style={{ backgroundColor: 'var(--primary-foreground)' }}
-        >
+        <div className="rounded-2xl overflow-hidden bg-primary-foreground">
           {keys.map((key, i) => (
             <React.Fragment key={key.id}>
-              {i > 0 && (
-                <div
-                  className="mx-[5px]"
-                  style={{ borderBottom: '1px solid var(--border)' }}
-                />
-              )}
-              <div className="flex items-center justify-between px-[5px] h-[52px]">
+              {i > 0 && <SettingDivider />}
+              <div className="flex items-center justify-between px-1.5 h-[52px]">
                 <div className="flex-1 min-w-0">
-                  <p
-                    className="text-[15px] font-medium truncate"
-                    style={{ color: 'var(--secondary-foreground)' }}
-                  >
+                  <p className="text-[15px] font-medium truncate text-secondary-foreground">
                     {key.label}
                   </p>
-                  <p
-                    className="text-[12px]"
-                    style={{ color: 'var(--muted-foreground)' }}
-                  >
+                  <p className="text-[12px] text-muted-foreground">
                     Last used {formatRelativeTime(key.lastSeenAt)}
                   </p>
                 </div>
                 <button
                   onClick={() => handleRevoke(key.id)}
-                  className="shrink-0 p-[6px] rounded-[8px] transition-colors"
-                  style={{ backgroundColor: 'var(--accent)' }}
+                  className="shrink-0 p-1.5 rounded-lg bg-accent transition-colors"
                   type="button"
                   title="Revoke this key"
                 >
@@ -262,48 +213,34 @@ export default function BridgePairing() {
       )}
 
       {/* Add new key */}
-      <div
-        className="rounded-[16px] overflow-hidden"
-        style={{ backgroundColor: 'var(--primary-foreground)' }}
-      >
+      <div className="rounded-2xl overflow-hidden bg-primary-foreground">
         {/* Description (shown when no keys yet) */}
         {keys.length === 0 && (
           <>
-            <div className="px-[5px] py-[12px]">
-              <p
-                className="text-[14px] leading-[22px]"
-                style={{ color: 'var(--muted-foreground)' }}
-              >
-                Lets Claude Code on your computer send you notifications and questions through your glasses. You respond by voice, and your answer goes back to Claude. Generate an API key and run the setup command in your terminal.
+            <div className="px-1.5 py-3">
+              <p className="text-[14px] leading-[22px] text-muted-foreground">
+                Generate an API key below, then run the setup command in your terminal to add the Mentra Bridge MCP server to Claude Code.
               </p>
             </div>
-            <div className="mx-[5px]" style={{ borderBottom: '1px solid var(--border)' }} />
+            <SettingDivider />
           </>
         )}
 
         {/* Label input + generate button */}
-        <div className="px-[5px] py-[12px] space-y-[10px]">
+        <div className="px-1.5 py-3 space-y-2.5">
           <div className="flex items-center gap-2">
             <input
               type="text"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder={keys.length > 0 ? 'Label (e.g. Work laptop)' : 'Label (optional)'}
-              className="flex-1 text-[15px] bg-transparent border outline-none rounded-[8px] px-[10px] h-[38px]"
-              style={{
-                borderColor: 'var(--border)',
-                color: 'var(--secondary-foreground)',
-              }}
+              className="flex-1 text-[15px] bg-input-background text-secondary-foreground border-none outline-none rounded-lg px-2.5 h-[38px] focus:ring-2 focus:ring-ring"
             />
           </div>
           <button
             onClick={handleGenerateKey}
             disabled={generating}
-            className="w-full h-[40px] rounded-[12px] text-[15px] font-semibold transition-all disabled:opacity-40 flex items-center justify-center gap-2"
-            style={{
-              backgroundColor: 'var(--secondary-foreground)',
-              color: 'var(--primary-foreground)',
-            }}
+            className="w-full h-10 rounded-xl text-[15px] font-semibold bg-secondary-foreground text-primary-foreground transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             type="button"
           >
             {generating ? (
@@ -320,7 +257,7 @@ export default function BridgePairing() {
 
       {/* Error message */}
       {error && (
-        <p className="text-center text-[14px] text-red-500 px-[5px]">
+        <p className="text-center text-[14px] text-red-500 px-1.5">
           {error}
         </p>
       )}

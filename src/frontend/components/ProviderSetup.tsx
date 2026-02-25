@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, X, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Check, X, Loader2, Eye, EyeOff, ChevronDown } from 'lucide-react';
 import {
   fetchProviderConfig,
   fetchProviderCatalog,
@@ -14,8 +14,111 @@ import {
   type ModelInfo,
 } from '../api/settings.api';
 import BridgePairing from './BridgePairing';
+import {
+  SettingSection,
+  SettingRow,
+  SettingDivider,
+  SettingDescription,
+} from './settings-ui';
 
 type TestStatus = 'idle' | 'testing' | 'valid' | 'invalid';
+
+// ─── Styled form controls ───
+
+function SettingInput({
+  value,
+  onChange,
+  placeholder,
+  type = 'text',
+  className = '',
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+  type?: string;
+  className?: string;
+}) {
+  return (
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={`text-base bg-input-background text-secondary-foreground rounded-lg px-3 h-8 border-none outline-none focus:ring-2 focus:ring-ring ${className}`}
+    />
+  );
+}
+
+function SettingSelect({
+  value,
+  onChange,
+  options,
+  disabled,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  disabled?: boolean;
+}) {
+  return (
+    <div className="relative flex items-center">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="appearance-none text-base bg-input-background text-secondary-foreground rounded-lg pl-3 pr-7 h-8 border-none outline-none cursor-pointer focus:ring-2 focus:ring-ring disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        <option value="">Select...</option>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        size={14}
+        className="absolute right-2 pointer-events-none text-muted-foreground"
+      />
+    </div>
+  );
+}
+
+function TestButton({
+  status,
+  onClick,
+  disabled,
+  labels = { idle: 'Test', valid: 'Valid', invalid: 'Invalid' },
+}: {
+  status: TestStatus;
+  onClick: () => void;
+  disabled: boolean;
+  labels?: { idle: string; valid: string; invalid: string };
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="shrink-0 text-[14px] font-semibold px-3 py-1.5 rounded-lg border border-border text-muted-foreground transition-all disabled:opacity-40 hover:bg-accent"
+      type="button"
+    >
+      {status === 'testing' ? (
+        <Loader2 size={14} className="animate-spin" />
+      ) : status === 'valid' ? (
+        <span className="flex items-center gap-1 text-green-500">
+          <Check size={12} /> {labels.valid}
+        </span>
+      ) : status === 'invalid' ? (
+        <span className="flex items-center gap-1 text-red-500">
+          <X size={12} /> {labels.invalid}
+        </span>
+      ) : (
+        labels.idle
+      )}
+    </button>
+  );
+}
+
+// ─── Provider Section ───
 
 function ProviderSection({
   label,
@@ -68,298 +171,178 @@ function ProviderSection({
 }) {
   const [showKey, setShowKey] = useState(false);
 
+  const providerOptions = providers.map((p) => ({
+    value: p,
+    label: providerNames[p] || p,
+  }));
+
+  const modelOptions = models.map((m) => ({ value: m.id, label: m.name }));
+
   return (
-    <div>
-      <h3
-        className="text-[14px] font-semibold uppercase tracking-wide px-[4px] mb-[6px]"
-        style={{ color: 'var(--muted-foreground)' }}
-      >
-        {label}
-      </h3>
-      <div
-        className="rounded-[16px] overflow-hidden"
-        style={{ backgroundColor: 'var(--primary-foreground)' }}
-      >
-        {/* Provider */}
-        <div className="flex items-center justify-between px-[5px] h-[48px]">
-          <span
-            className="text-[16px] font-medium"
-            style={{ color: 'var(--secondary-foreground)' }}
-          >
-            Provider
-          </span>
-          <select
-            value={selectedProvider}
-            onChange={(e) => onProviderChange(e.target.value)}
-            className="text-[16px] bg-transparent border-none outline-none cursor-pointer"
-            style={{ color: 'var(--muted-foreground)' }}
-          >
-            <option value="">Select...</option>
-            {providers.map((p) => (
-              <option key={p} value={p}>
-                {providerNames[p] || p}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div
-          className="mx-[5px]"
-          style={{ borderBottom: '1px solid var(--border)' }}
+    <SettingSection label={label}>
+      {/* Provider */}
+      <SettingRow label="Provider">
+        <SettingSelect
+          value={selectedProvider}
+          onChange={onProviderChange}
+          options={providerOptions}
         />
+      </SettingRow>
 
-        {isNone ? (
-          <div className="px-[5px] py-[12px]">
-            <p
-              className="text-[13px] leading-[20px]"
-              style={{ color: 'var(--muted-foreground)' }}
-            >
-              Vision is disabled. Photos taken with your glasses will be stored but not analyzed. You can enable vision anytime by selecting a provider above.
-            </p>
-          </div>
-        ) : isCustom ? (
-          <>
-            {/* OpenAI-compatible note */}
-            <div className="px-[5px] py-[10px]">
-              <p
-                className="text-[13px] leading-[20px]"
-                style={{ color: 'var(--muted-foreground)' }}
-              >
-                Connects to any server with an OpenAI-compatible API (Ollama, LM Studio, vLLM, llama.cpp, LocalAI, text-generation-webui, etc.). The server must support the <span className="font-medium">/v1/chat/completions</span> endpoint format.
-              </p>
-            </div>
+      <SettingDivider />
 
-            <div
-              className="mx-[5px]"
-              style={{ borderBottom: '1px solid var(--border)' }}
+      {isNone ? (
+        <SettingDescription>
+          Vision is disabled. Photos taken with your glasses will be stored but
+          not analyzed. You can enable vision anytime by selecting a provider
+          above.
+        </SettingDescription>
+      ) : isCustom ? (
+        <>
+          {/* OpenAI-compatible note */}
+          <SettingDescription>
+            Connects to any server with an OpenAI-compatible API (Ollama, LM
+            Studio, vLLM, llama.cpp, LocalAI, text-generation-webui, etc.). The
+            server must support the{' '}
+            <span className="font-medium">/v1/chat/completions</span> endpoint
+            format.
+          </SettingDescription>
+
+          <SettingDivider />
+
+          {/* Provider Name */}
+          <SettingRow label="Name">
+            <SettingInput
+              value={customProviderName || ''}
+              onChange={(v) => onCustomProviderNameChange?.(v)}
+              placeholder="e.g. My Ollama Server"
+              className="flex-1 text-right min-w-0 ml-2"
             />
+          </SettingRow>
 
-            {/* Provider Name (friendly label) */}
-            <div className="flex items-center justify-between px-[5px] h-[48px]">
-              <span
-                className="text-[16px] font-medium shrink-0"
-                style={{ color: 'var(--secondary-foreground)' }}
-              >
-                Name
-              </span>
-              <input
-                type="text"
-                value={customProviderName || ''}
-                onChange={(e) => onCustomProviderNameChange?.(e.target.value)}
-                placeholder="e.g. My Ollama Server"
-                className="flex-1 text-[16px] bg-transparent border-none outline-none text-right min-w-0 ml-2"
-                style={{ color: 'var(--secondary-foreground)' }}
+          <SettingDivider />
+
+          {/* Base URL */}
+          <SettingRow label="Base URL">
+            <SettingInput
+              value={customBaseUrl || ''}
+              onChange={(v) => onCustomBaseUrlChange?.(v)}
+              placeholder="http://localhost:11434/v1"
+              className="flex-1 text-right min-w-0 ml-2"
+            />
+          </SettingRow>
+
+          <SettingDivider />
+
+          {/* Model (free text) */}
+          <SettingRow label="Model">
+            <SettingInput
+              value={modelInput || ''}
+              onChange={(v) => onModelInputChange?.(v)}
+              placeholder="llama3.1, codellama:7b, etc."
+              className="flex-1 text-right min-w-0 ml-2"
+            />
+          </SettingRow>
+
+          <SettingDivider />
+
+          {/* API Key (optional for custom) */}
+          <div className="flex items-center gap-2 px-1.5 h-12">
+            <span className="text-base font-medium text-secondary-foreground shrink-0">
+              API Key
+            </span>
+            <div className="flex-1 flex items-center gap-1 min-w-0">
+              <SettingInput
+                type={showKey ? 'text' : 'password'}
+                value={apiKey}
+                onChange={onApiKeyChange}
+                placeholder="Optional for most local servers"
+                className="flex-1 text-right min-w-0"
               />
-            </div>
-
-            <div
-              className="mx-[5px]"
-              style={{ borderBottom: '1px solid var(--border)' }}
-            />
-
-            {/* Base URL (custom only) */}
-            <div className="flex items-center justify-between px-[5px] h-[48px]">
-              <span
-                className="text-[16px] font-medium shrink-0"
-                style={{ color: 'var(--secondary-foreground)' }}
-              >
-                Base URL
-              </span>
-              <input
-                type="text"
-                value={customBaseUrl || ''}
-                onChange={(e) => onCustomBaseUrlChange?.(e.target.value)}
-                placeholder="http://localhost:11434/v1"
-                className="flex-1 text-[16px] bg-transparent border-none outline-none text-right min-w-0 ml-2"
-                style={{ color: 'var(--secondary-foreground)' }}
-              />
-            </div>
-
-            <div
-              className="mx-[5px]"
-              style={{ borderBottom: '1px solid var(--border)' }}
-            />
-
-            {/* Model (free text input for custom) */}
-            <div className="flex items-center justify-between px-[5px] h-[48px]">
-              <span
-                className="text-[16px] font-medium shrink-0"
-                style={{ color: 'var(--secondary-foreground)' }}
-              >
-                Model
-              </span>
-              <input
-                type="text"
-                value={modelInput || ''}
-                onChange={(e) => onModelInputChange?.(e.target.value)}
-                placeholder="llama3.1, codellama:7b, etc."
-                className="flex-1 text-[16px] bg-transparent border-none outline-none text-right min-w-0 ml-2"
-                style={{ color: 'var(--secondary-foreground)' }}
-              />
-            </div>
-
-            <div
-              className="mx-[5px]"
-              style={{ borderBottom: '1px solid var(--border)' }}
-            />
-
-            {/* API Key (optional for custom) */}
-            <div className="flex items-center gap-2 px-[5px] h-[48px]">
-              <span
-                className="text-[16px] font-medium shrink-0"
-                style={{ color: 'var(--secondary-foreground)' }}
-              >
-                API Key
-              </span>
-              <div className="flex-1 flex items-center gap-1 min-w-0">
-                <input
-                  type={showKey ? 'text' : 'password'}
-                  value={apiKey}
-                  onChange={(e) => onApiKeyChange(e.target.value)}
-                  placeholder="Optional for most local servers"
-                  className="flex-1 text-[16px] bg-transparent border-none outline-none text-right min-w-0"
-                  style={{ color: 'var(--secondary-foreground)' }}
-                />
-                <button
-                  onClick={() => setShowKey(!showKey)}
-                  className="shrink-0 p-1"
-                  style={{ color: 'var(--muted-foreground)' }}
-                  type="button"
-                  aria-label={showKey ? 'Hide API key' : 'Show API key'}
-                >
-                  {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-              </div>
-            </div>
-
-            <div
-              className="mx-[5px]"
-              style={{ borderBottom: '1px solid var(--border)' }}
-            />
-
-            {/* Test Endpoint (custom) */}
-            <div className="flex items-center justify-between px-[5px] h-[48px]">
-              <span
-                className="text-[16px] font-medium"
-                style={{ color: 'var(--secondary-foreground)' }}
-              >
-                Endpoint
-              </span>
               <button
-                onClick={onTestCustom}
-                disabled={!customBaseUrl || customTestStatus === 'testing'}
-                className="shrink-0 text-[14px] font-medium px-3 py-1 rounded-[8px] transition-all disabled:opacity-40"
-                style={{
-                  backgroundColor: 'var(--accent)',
-                  color: 'var(--accent-foreground)',
-                }}
+                onClick={() => setShowKey(!showKey)}
+                className="shrink-0 p-1 text-muted-foreground"
                 type="button"
+                aria-label={showKey ? 'Hide API key' : 'Show API key'}
               >
-                {customTestStatus === 'testing' ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : customTestStatus === 'valid' ? (
-                  <span className="flex items-center gap-1 text-green-500">
-                    <Check size={12} /> Reachable
-                  </span>
-                ) : customTestStatus === 'invalid' ? (
-                  <span className="flex items-center gap-1 text-red-500">
-                    <X size={12} /> Unreachable
-                  </span>
-                ) : (
-                  'Test Connection'
-                )}
+                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
-          </>
-        ) : (
-          <>
-            {/* Model (dropdown for standard providers) */}
-            <div className="flex items-center justify-between px-[5px] h-[48px]">
-              <span
-                className="text-[16px] font-medium"
-                style={{ color: 'var(--secondary-foreground)' }}
-              >
-                Model
-              </span>
-              <select
-                value={selectedModel}
-                onChange={(e) => onModelChange(e.target.value)}
-                className="text-[16px] bg-transparent border-none outline-none cursor-pointer"
-                style={{ color: 'var(--muted-foreground)' }}
-                disabled={!selectedProvider}
-              >
-                <option value="">Select...</option>
-                {models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          </div>
 
-            <div
-              className="mx-[5px]"
-              style={{ borderBottom: '1px solid var(--border)' }}
+          <SettingDivider />
+
+          {/* Test Endpoint */}
+          <SettingRow label="Endpoint">
+            <TestButton
+              status={customTestStatus || 'idle'}
+              onClick={() => onTestCustom?.()}
+              disabled={!customBaseUrl || customTestStatus === 'testing'}
+              labels={{
+                idle: 'Test Connection',
+                valid: 'Reachable',
+                invalid: 'Unreachable',
+              }}
             />
+          </SettingRow>
+        </>
+      ) : (
+        <>
+          {/* Model (dropdown) */}
+          <SettingRow label="Model">
+            <SettingSelect
+              value={selectedModel}
+              onChange={onModelChange}
+              options={modelOptions}
+              disabled={!selectedProvider}
+            />
+          </SettingRow>
 
-            {/* API Key (required for standard providers) */}
-            <div className="flex items-center gap-2 px-[5px] h-[48px]">
-              <span
-                className="text-[16px] font-medium shrink-0"
-                style={{ color: 'var(--secondary-foreground)' }}
+          <SettingDivider />
+
+          {/* API Key (required for standard providers) */}
+          <div className="flex items-center gap-2 px-1.5 h-12">
+            <span className="text-base font-medium text-secondary-foreground shrink-0">
+              API Key
+            </span>
+            <div className="flex-1 flex items-center gap-1 min-w-0">
+              <SettingInput
+                type={showKey ? 'text' : 'password'}
+                value={apiKey}
+                onChange={onApiKeyChange}
+                placeholder={keyIsSet ? '••••••••' : 'Enter API key'}
+                className="flex-1 text-right min-w-0"
+              />
+              <button
+                onClick={() => setShowKey(!showKey)}
+                className="shrink-0 p-1 text-muted-foreground"
+                type="button"
+                aria-label={showKey ? 'Hide API key' : 'Show API key'}
               >
-                API Key
-              </span>
-              <div className="flex-1 flex items-center gap-1 min-w-0">
-                <input
-                  type={showKey ? 'text' : 'password'}
-                  value={apiKey}
-                  onChange={(e) => onApiKeyChange(e.target.value)}
-                  placeholder={keyIsSet ? '••••••••' : 'Enter API key'}
-                  className="flex-1 text-[16px] bg-transparent border-none outline-none text-right min-w-0"
-                  style={{ color: 'var(--secondary-foreground)' }}
-                />
-                <button
-                  onClick={() => setShowKey(!showKey)}
-                  className="shrink-0 p-1"
-                  style={{ color: 'var(--muted-foreground)' }}
-                  type="button"
-                  aria-label={showKey ? 'Hide API key' : 'Show API key'}
-                >
-                  {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                </button>
-                <button
-                  onClick={onTest}
-                  disabled={!apiKey || !selectedProvider || testStatus === 'testing'}
-                  className="shrink-0 text-[14px] font-medium px-2 py-1 rounded-[8px] transition-all disabled:opacity-40"
-                  style={{
-                    backgroundColor: 'var(--accent)',
-                    color: 'var(--accent-foreground)',
-                  }}
-                  type="button"
-                >
-                  {testStatus === 'testing' ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : testStatus === 'valid' ? (
-                    <span className="flex items-center gap-1 text-green-500">
-                      <Check size={12} /> Valid
-                    </span>
-                  ) : testStatus === 'invalid' ? (
-                    <span className="flex items-center gap-1 text-red-500">
-                      <X size={12} /> Invalid
-                    </span>
-                  ) : (
-                    'Test'
-                  )}
-                </button>
-              </div>
+                {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
             </div>
-          </>
-        )}
-      </div>
-    </div>
+          </div>
+
+          <SettingDivider />
+
+          {/* Test API Key */}
+          <div className="flex items-center justify-end px-1.5 h-12">
+            <TestButton
+              status={testStatus}
+              onClick={onTest}
+              disabled={
+                !apiKey || !selectedProvider || testStatus === 'testing'
+              }
+            />
+          </div>
+        </>
+      )}
+    </SettingSection>
   );
 }
+
+// ─── Main Component ───
 
 export default function ProviderSetup() {
   const [catalog, setCatalog] = useState<ProviderCatalog>({});
@@ -391,15 +374,19 @@ export default function ProviderSetup() {
   const [llmCustomBaseUrl, setLlmCustomBaseUrl] = useState('');
   const [llmCustomProviderName, setLlmCustomProviderName] = useState('');
   const [llmModelInput, setLlmModelInput] = useState('');
-  const [llmCustomTestStatus, setLlmCustomTestStatus] = useState<TestStatus>('idle');
+  const [llmCustomTestStatus, setLlmCustomTestStatus] =
+    useState<TestStatus>('idle');
+
   // Google Cloud (optional)
   const [googleCloudKey, setGoogleCloudKey] = useState('');
   const [googleCloudKeySet, setGoogleCloudKeySet] = useState(false);
-  const [googleCloudTestStatus, setGoogleCloudTestStatus] = useState<TestStatus>('idle');
+  const [googleCloudTestStatus, setGoogleCloudTestStatus] =
+    useState<TestStatus>('idle');
 
   // UI
   const [useSameProvider, setUseSameProvider] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showGoogleKey, setShowGoogleKey] = useState(false);
 
   // Load config + catalog on mount
   useEffect(() => {
@@ -443,9 +430,12 @@ export default function ProviderSetup() {
   providerNames['none'] = 'None — Disable Vision';
 
   // LLM providers: exclude "none" (can't disable LLM)
-  const llmProviderIds = allProviderIds.filter(id => id !== 'none');
+  const llmProviderIds = allProviderIds.filter((id) => id !== 'none');
   // Vision providers: exclude "custom" (local vision isn't viable), include "none" for opt-out
-  const visionProviderIds = [...allProviderIds.filter(id => id !== 'custom'), 'none'];
+  const visionProviderIds = [
+    ...allProviderIds.filter((id) => id !== 'custom'),
+    'none',
+  ];
 
   const llmModels =
     llmProvider && catalog[llmProvider] ? catalog[llmProvider].models : [];
@@ -522,8 +512,8 @@ export default function ProviderSetup() {
       const llmIsCustom = llmProvider === 'custom';
       const effectiveLlmModel = llmIsCustom ? llmModelInput : llmModel;
       const llmCanSave = llmIsCustom
-        ? (llmProvider && effectiveLlmModel && llmCustomBaseUrl)
-        : ((llmApiKey || llmKeySet) && llmProvider && effectiveLlmModel);
+        ? llmProvider && effectiveLlmModel && llmCustomBaseUrl
+        : (llmApiKey || llmKeySet) && llmProvider && effectiveLlmModel;
 
       if (llmCanSave) {
         const result = await saveProviderConfig({
@@ -531,7 +521,12 @@ export default function ProviderSetup() {
           provider: llmProvider,
           model: effectiveLlmModel,
           ...(llmApiKey ? { apiKey: llmApiKey } : {}),
-          ...(llmIsCustom ? { baseUrl: llmCustomBaseUrl, providerName: llmCustomProviderName || undefined } : {}),
+          ...(llmIsCustom
+            ? {
+                baseUrl: llmCustomBaseUrl,
+                providerName: llmCustomProviderName || undefined,
+              }
+            : {}),
         });
         if (!result.success) {
           setSaveMessage({
@@ -550,7 +545,12 @@ export default function ProviderSetup() {
             provider: llmProvider,
             model: effectiveLlmModel,
             ...(llmApiKey ? { apiKey: llmApiKey } : {}),
-            ...(llmIsCustom ? { baseUrl: llmCustomBaseUrl, providerName: llmCustomProviderName || undefined } : {}),
+            ...(llmIsCustom
+              ? {
+                  baseUrl: llmCustomBaseUrl,
+                  providerName: llmCustomProviderName || undefined,
+                }
+              : {}),
           });
           if (!vResult.success) {
             setSaveMessage({
@@ -588,7 +588,8 @@ export default function ProviderSetup() {
         }
         setVisionKeySet(true); // "configured" in the sense of explicitly set
       } else if (!useSameProvider) {
-        const visionCanSave = (visionApiKey || visionKeySet) && visionProvider && visionModel;
+        const visionCanSave =
+          (visionApiKey || visionKeySet) && visionProvider && visionModel;
 
         if (visionCanSave) {
           const result = await saveProviderConfig({
@@ -640,8 +641,7 @@ export default function ProviderSetup() {
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-[100px] rounded-[16px]"
-            style={{ backgroundColor: 'var(--primary-foreground)' }}
+            className="h-[100px] rounded-2xl bg-primary-foreground"
           />
         ))}
       </div>
@@ -651,55 +651,25 @@ export default function ProviderSetup() {
   return (
     <div className="space-y-5">
       {/* Personalization */}
-      <div>
-        <h3
-          className="text-[14px] font-semibold uppercase tracking-wide px-[4px] mb-[6px]"
-          style={{ color: 'var(--muted-foreground)' }}
-        >
-          Personalization
-        </h3>
-        <div
-          className="rounded-[16px] overflow-hidden"
-          style={{ backgroundColor: 'var(--primary-foreground)' }}
-        >
-          <div className="flex items-center justify-between px-[5px] h-[48px]">
-            <label
-              className="text-[16px] font-medium"
-              style={{ color: 'var(--secondary-foreground)' }}
-            >
-              Assistant Name
-            </label>
-            <input
-              type="text"
-              value={agentName}
-              onChange={(e) => setAgentName(e.target.value)}
-              placeholder="Any AI"
-              className="text-[16px] bg-transparent border-none outline-none text-right w-[160px]"
-              style={{ color: 'var(--secondary-foreground)' }}
-            />
-          </div>
-          <div
-            className="mx-[5px]"
-            style={{ borderBottom: '1px solid var(--border)' }}
+      <SettingSection label="Personalization">
+        <SettingRow label="Assistant Name">
+          <SettingInput
+            value={agentName}
+            onChange={setAgentName}
+            placeholder="Any AI"
+            className="w-40 text-right"
           />
-          <div className="flex items-center justify-between px-[5px] h-[48px]">
-            <label
-              className="text-[16px] font-medium"
-              style={{ color: 'var(--secondary-foreground)' }}
-            >
-              Wake Word
-            </label>
-            <input
-              type="text"
-              value={wakeWord}
-              onChange={(e) => setWakeWord(e.target.value)}
-              placeholder="Hey Jarvis"
-              className="text-[16px] bg-transparent border-none outline-none text-right w-[160px]"
-              style={{ color: 'var(--secondary-foreground)' }}
-            />
-          </div>
-        </div>
-      </div>
+        </SettingRow>
+        <SettingDivider />
+        <SettingRow label="Wake Word">
+          <SettingInput
+            value={wakeWord}
+            onChange={setWakeWord}
+            placeholder="Hey Jarvis"
+            className="w-40 text-right"
+          />
+        </SettingRow>
+      </SettingSection>
 
       {/* LLM Section */}
       <ProviderSection
@@ -730,38 +700,45 @@ export default function ProviderSetup() {
         modelInput={llmModelInput}
         onModelInputChange={setLlmModelInput}
         customTestStatus={llmCustomTestStatus}
-        onTestCustom={() => handleTestCustomEndpoint(llmCustomBaseUrl, llmApiKey, setLlmCustomTestStatus)}
+        onTestCustom={() =>
+          handleTestCustomEndpoint(
+            llmCustomBaseUrl,
+            llmApiKey,
+            setLlmCustomTestStatus,
+          )
+        }
       />
 
       {/* Use same provider checkbox (hidden when LLM is custom — custom vision isn't supported) */}
-      {llmProvider !== 'custom' && <div className="flex items-center gap-3 px-[4px]">
-        <button
-          type="button"
-          role="checkbox"
-          aria-checked={useSameProvider}
-          onClick={() => setUseSameProvider(!useSameProvider)}
-          className="w-[20px] h-[20px] rounded-[4px] border flex items-center justify-center transition-colors shrink-0"
-          style={{
-            backgroundColor: useSameProvider
-              ? 'var(--secondary-foreground)'
-              : 'transparent',
-            borderColor: useSameProvider
-              ? 'var(--secondary-foreground)'
-              : 'var(--border)',
-          }}
-        >
-          {useSameProvider && (
-            <Check size={14} style={{ color: 'var(--primary-foreground)' }} />
-          )}
-        </button>
-        <span
-          onClick={() => setUseSameProvider(!useSameProvider)}
-          className="text-[16px] cursor-pointer select-none"
-          style={{ color: 'var(--secondary-foreground)' }}
-        >
-          Use same provider for vision
-        </span>
-      </div>}
+      {llmProvider !== 'custom' && (
+        <div className="flex items-center gap-3 px-1">
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={useSameProvider}
+            onClick={() => setUseSameProvider(!useSameProvider)}
+            className="w-5 h-5 rounded border flex items-center justify-center transition-colors shrink-0"
+            style={{
+              backgroundColor: useSameProvider
+                ? 'var(--secondary-foreground)'
+                : 'transparent',
+              borderColor: useSameProvider
+                ? 'var(--secondary-foreground)'
+                : 'var(--border)',
+            }}
+          >
+            {useSameProvider && (
+              <Check size={14} className="text-primary-foreground" />
+            )}
+          </button>
+          <span
+            onClick={() => setUseSameProvider(!useSameProvider)}
+            className="text-base text-secondary-foreground cursor-pointer select-none"
+          >
+            Use same provider for vision
+          </span>
+        </div>
+      )}
 
       {/* Vision Section (hidden when using same provider) */}
       {!useSameProvider && (
@@ -789,138 +766,109 @@ export default function ProviderSetup() {
       )}
 
       {/* Google Cloud (Optional) */}
-      <div>
-        <h3
-          className="text-[14px] font-semibold uppercase tracking-wide px-[4px] mb-[6px]"
-          style={{ color: 'var(--muted-foreground)' }}
-        >
-          Google Cloud (Optional)
-        </h3>
-        <div
-          className="rounded-[16px] overflow-hidden"
-          style={{ backgroundColor: 'var(--primary-foreground)' }}
-        >
-          {/* Description */}
-          <div className="px-[5px] py-[12px]">
-            <p
-              className="text-[14px] leading-[22px]"
-              style={{ color: 'var(--muted-foreground)' }}
+      <SettingSection label="Google Cloud (Optional)">
+        <SettingDescription>
+          Enables location services: weather, air quality, pollen, nearby
+          places, directions, and timezone detection. Requires a Google Cloud
+          API key with these APIs enabled: Geocoding, Places (New), Routes,
+          Time Zone, Weather, Air Quality, Pollen.
+        </SettingDescription>
+
+        <SettingDivider />
+
+        {/* API Key */}
+        <div className="flex items-center gap-2 px-1.5 h-12">
+          <span className="text-base font-medium text-secondary-foreground shrink-0">
+            API Key
+          </span>
+          <div className="flex-1 flex items-center gap-1 min-w-0">
+            <SettingInput
+              type={showGoogleKey ? 'text' : 'password'}
+              value={googleCloudKey}
+              onChange={(v) => {
+                setGoogleCloudKey(v);
+                setGoogleCloudTestStatus('idle');
+              }}
+              placeholder={googleCloudKeySet ? '••••••••' : 'Enter API key'}
+              className="flex-1 text-right min-w-0"
+            />
+            <button
+              onClick={() => setShowGoogleKey(!showGoogleKey)}
+              className="shrink-0 p-1 text-muted-foreground"
+              type="button"
+              aria-label={showGoogleKey ? 'Hide API key' : 'Show API key'}
             >
-              Enables location services: weather, air quality, pollen, nearby places, directions, and timezone detection. Requires a Google Cloud API key with these APIs enabled: Geocoding, Places (New), Routes, Time Zone, Weather, Air Quality, Pollen.
-            </p>
+              {showGoogleKey ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
           </div>
-
-          <div
-            className="mx-[5px]"
-            style={{ borderBottom: '1px solid var(--border)' }}
-          />
-
-          {/* API Key */}
-          <div className="flex items-center gap-2 px-[5px] h-[48px]">
-            <span
-              className="text-[16px] font-medium shrink-0"
-              style={{ color: 'var(--secondary-foreground)' }}
-            >
-              API Key
-            </span>
-            <div className="flex-1 flex items-center gap-1 min-w-0">
-              <input
-                type="password"
-                value={googleCloudKey}
-                onChange={(e) => {
-                  setGoogleCloudKey(e.target.value);
-                  setGoogleCloudTestStatus('idle');
-                }}
-                placeholder={googleCloudKeySet ? '••••••••' : 'Enter API key'}
-                className="flex-1 text-[16px] bg-transparent border-none outline-none text-right min-w-0"
-                style={{ color: 'var(--secondary-foreground)' }}
-              />
-              <button
-                onClick={async () => {
-                  if (!googleCloudKey) return;
-                  setGoogleCloudTestStatus('testing');
-                  try {
-                    const result = await validateGoogleCloudKey(googleCloudKey);
-                    setGoogleCloudTestStatus(result.valid ? 'valid' : 'invalid');
-                  } catch {
-                    setGoogleCloudTestStatus('invalid');
-                  }
-                }}
-                disabled={!googleCloudKey || googleCloudTestStatus === 'testing'}
-                className="shrink-0 text-[14px] font-medium px-2 py-1 rounded-[8px] transition-all disabled:opacity-40"
-                style={{
-                  backgroundColor: 'var(--accent)',
-                  color: 'var(--accent-foreground)',
-                }}
-                type="button"
-              >
-                {googleCloudTestStatus === 'testing' ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : googleCloudTestStatus === 'valid' ? (
-                  <span className="flex items-center gap-1 text-green-500">
-                    <Check size={12} /> Valid
-                  </span>
-                ) : googleCloudTestStatus === 'invalid' ? (
-                  <span className="flex items-center gap-1 text-red-500">
-                    <X size={12} /> Invalid
-                  </span>
-                ) : (
-                  'Test'
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Remove key button (only shown when key is set) */}
-          {googleCloudKeySet && (
-            <>
-              <div
-                className="mx-[5px]"
-                style={{ borderBottom: '1px solid var(--border)' }}
-              />
-              <div className="flex items-center justify-between px-[5px] h-[48px]">
-                <span
-                  className="text-[16px] font-medium"
-                  style={{ color: 'var(--secondary-foreground)' }}
-                >
-                  Status
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[15px] text-green-500">Configured</span>
-                  <button
-                    onClick={async () => {
-                      try {
-                        await deleteGoogleCloudKey();
-                        setGoogleCloudKeySet(false);
-                        setGoogleCloudKey('');
-                        setSaveMessage({ type: 'success', text: 'Google Cloud key removed' });
-                        setTimeout(() => setSaveMessage(null), 3000);
-                      } catch {
-                        setSaveMessage({ type: 'error', text: 'Failed to remove key' });
-                      }
-                    }}
-                    className="text-[14px] font-medium px-2 py-1 rounded-[8px] text-red-500"
-                    style={{ backgroundColor: 'var(--accent)' }}
-                    type="button"
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
         </div>
-      </div>
+
+        <SettingDivider />
+
+        {/* Test API Key */}
+        <div className="flex items-center justify-end px-1.5 h-12">
+          <TestButton
+            status={googleCloudTestStatus}
+            onClick={async () => {
+              if (!googleCloudKey) return;
+              setGoogleCloudTestStatus('testing');
+              try {
+                const result =
+                  await validateGoogleCloudKey(googleCloudKey);
+                setGoogleCloudTestStatus(
+                  result.valid ? 'valid' : 'invalid',
+                );
+              } catch {
+                setGoogleCloudTestStatus('invalid');
+              }
+            }}
+            disabled={
+              !googleCloudKey || googleCloudTestStatus === 'testing'
+            }
+          />
+        </div>
+
+        {/* Remove key (shown when key is set) */}
+        {googleCloudKeySet && (
+          <>
+            <SettingDivider />
+            <SettingRow label="Status">
+              <div className="flex items-center gap-2">
+                <span className="text-[15px] text-green-500">Configured</span>
+                <button
+                  onClick={async () => {
+                    try {
+                      await deleteGoogleCloudKey();
+                      setGoogleCloudKeySet(false);
+                      setGoogleCloudKey('');
+                      setSaveMessage({
+                        type: 'success',
+                        text: 'Google Cloud key removed',
+                      });
+                      setTimeout(() => setSaveMessage(null), 3000);
+                    } catch {
+                      setSaveMessage({
+                        type: 'error',
+                        text: 'Failed to remove key',
+                      });
+                    }
+                  }}
+                  className="text-[14px] font-medium px-2 py-1 rounded-lg bg-accent text-red-500"
+                  type="button"
+                >
+                  Remove
+                </button>
+              </div>
+            </SettingRow>
+          </>
+        )}
+      </SettingSection>
 
       {/* Save button */}
       <button
         onClick={handleSave}
         disabled={saving}
-        className="w-full h-[48px] rounded-[16px] text-[16px] font-semibold transition-all disabled:opacity-50"
-        style={{
-          backgroundColor: 'var(--secondary-foreground)',
-          color: 'var(--primary-foreground)',
-        }}
+        className="w-full h-12 rounded-2xl text-base font-semibold bg-secondary-foreground text-primary-foreground transition-all disabled:opacity-50"
         type="button"
       >
         {saving ? 'Saving...' : 'Save Configuration'}
@@ -937,14 +885,19 @@ export default function ProviderSetup() {
         </p>
       )}
 
+      {/* Separator */}
+      <div className="border-t border-border my-2" />
+
       {/* Claude Code Bridge (Optional) */}
       <div className="space-y-1">
-        <h3
-          className="text-[14px] font-semibold uppercase tracking-wide px-[4px] mb-[6px]"
-          style={{ color: 'var(--muted-foreground)' }}
-        >
-          Claude Code Bridge (Optional)
+        <h3 className="text-[18px] font-bold px-1 mb-1.5 text-secondary-foreground">
+          Claude Code Bridge
         </h3>
+        <p className="text-[13px] leading-5 text-muted-foreground px-1 mb-2">
+          Connect Claude Code to your glasses via the Mentra Bridge MCP server.
+          Claude sends you notifications and questions through your glasses — you
+          respond by voice, and your answer goes back to Claude.
+        </p>
         <BridgePairing />
       </div>
     </div>

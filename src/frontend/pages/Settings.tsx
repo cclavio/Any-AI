@@ -33,19 +33,15 @@ function Settings({
   return (
     <div
       onClick={handleSettingsTap}
-      className={`h-screen flex flex-col ${isDarkMode ? 'dark' : ''}`}
+      className={`h-screen flex flex-col bg-background ${isDarkMode ? 'dark' : ''}`}
       style={{
-        backgroundColor: 'var(--background)',
         overscrollBehavior: 'none',
         touchAction: 'pan-y',
       }}
     >
       {/* Page Title */}
-      <div className="w-full px-[24px] py-[12px] text-center">
-        <h1
-          className="text-[22px] font-bold"
-          style={{ color: 'var(--secondary-foreground)' }}
-        >
+      <div className="w-full px-6 py-3 text-center">
+        <h1 className="text-[22px] font-bold text-secondary-foreground">
           App Configuration
         </h1>
       </div>
@@ -56,7 +52,7 @@ function Settings({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="flex-1 px-[24px] pt-0 pb-[24px] space-y-3 overflow-y-auto"
+        className="flex-1 px-6 pt-0 pb-6 space-y-3 overflow-y-auto"
         style={{
           overscrollBehavior: 'none',
           WebkitOverflowScrolling: 'touch',
@@ -64,16 +60,10 @@ function Settings({
         }}
       >
         {/* How-to instructions */}
-        <div
-          className="rounded-[16px] px-[5px] pt-0 pb-[14px]"
-          style={{ backgroundColor: 'var(--primary-foreground)' }}
-        >
-          <p
-            className="text-[15px] leading-[1.5]"
-            style={{ color: 'var(--muted-foreground)' }}
-          >
+        <div className="rounded-2xl px-1.5 pt-0 pb-3.5 bg-primary-foreground">
+          <p className="text-[15px] leading-[1.5] text-muted-foreground">
             Configure your AI provider and API key below, then say your{' '}
-            <span style={{ color: 'var(--secondary-foreground)', fontWeight: 600 }}>
+            <span className="text-secondary-foreground font-semibold">
               wake word
             </span>{' '}
             followed by your question.
